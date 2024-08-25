@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st  #import statement for streamlit 
 
 # Set the page configuration
 st.set_page_config(page_title="IELTS Practice", layout="wide")
