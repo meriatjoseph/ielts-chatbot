@@ -1,6 +1,6 @@
 import streamlit as st  #import statement for streamlit 
 
-# Set the page configurationss
+# Set the page configurationsss
 st.set_page_config(page_title="IELTS Practice", layout="wide")
 
 # Sidebar with a heading "Features"
