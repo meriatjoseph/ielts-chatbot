@@ -1,3 +1,15 @@
 streamlit
+langchain
+langchain-groq
+python-dotenv
+pathlib
+ipykernel
+Ollama
+langchain-community
+streamlit 
+faiss-cpu
+pypdf2
+pypdf
+bs4
 
 
