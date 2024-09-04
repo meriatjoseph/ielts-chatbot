@@ -74,7 +74,7 @@ def extract_writing_tasks(documents):
                 print(f"Task {len(tasks)+1} found in document {pdf_path} on page {page_number}")
 
                 # Extract images from the PDF
-                images = extract_images_from_pdf(pdf_path, page_number)
+                images = extract_images_from_pdf(pdf_path, start_page=page_number)
                 tasks.append({"text": text, "image": images[0] if images else None})
             else:
                 print(f"Duplicate task found in document {pdf_path} on page {page_number} and skipped.")
@@ -83,27 +83,39 @@ def extract_writing_tasks(documents):
     print(f"Total tasks extracted: {len(tasks)}")
     return tasks
 
-# Function to extract images from a PDF file
-def extract_images_from_pdf(pdf_path, page_number):
+# Function to extract images from a PDF file, starting from a specific page
+def extract_images_from_pdf(pdf_path, start_page=1):
     images = []
-    pdf_document = fitz.open(pdf_path)
-    page = pdf_document.load_page(page_number - 1)  # PyMuPDF uses 0-based page numbers
+    pdf_document = fitz.open(pdf_path)  # Open the PDF document
 
-    print(f"Extracting images from document {pdf_path}, Page: {page_number}")
+    num_pages = pdf_document.page_count  # Get the total number of pages
 
-    for img_index, img in enumerate(page.get_images(full=True)):
-        if img_index >= 1:  # Only process the first image for efficiency
+    for page_number in range(start_page - 1, num_pages):  # Start checking from the start_page
+        page = pdf_document.load_page(page_number)  # Load the current page
+        print(f"Checking document {pdf_path}, Page: {page_number + 1}")
+
+        # Retrieve images on the current page
+        image_list = page.get_images(full=True)
+
+        if image_list:  # If there are images on this page
+            print(f"Found {len(image_list)} image(s) on page {page_number + 1}")
+
+            for img_index, img in enumerate(image_list):
+                xref = img[0]
+                base_image = pdf_document.extract_image(xref)
+                image_bytes = base_image["image"]
+                image = Image.open(io.BytesIO(image_bytes))
+                images.append(image)
+
+            # Stop searching after the first page with images is found
             break
-        xref = img[0]
-        base_image = pdf_document.extract_image(xref)
-        image_bytes = base_image["image"]
-        image = Image.open(io.BytesIO(image_bytes))
-        images.append(image)
-    
+        else:
+            print(f"No images found on page {page_number + 1}")
+
     if images:
-        print(f"Image extracted successfully from document {pdf_path}, Page: {page_number}")
+        print(f"Image(s) extracted successfully from document {pdf_path}")
     else:
-        print(f"No images found on document {pdf_path}, Page: {page_number}")
+        print(f"No images found starting from page {start_page} in document {pdf_path}")
     
     return images
 
