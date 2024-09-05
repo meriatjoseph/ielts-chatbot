@@ -1,6 +1,8 @@
-import streamlit as st  #import statement for streamlit 
+import streamlit as st  # Import Streamlit
+from writing1 import display_writing1_content  # Import the function to display content from writing1.py
+from writing2 import display_writing2_content  # Import the function to display content from writing2.py
 
-# Set the page configurationsss
+# Set the page configurations
 st.set_page_config(page_title="IELTS Practice", layout="wide")
 
 # Sidebar with a heading "Features"
@@ -14,15 +16,28 @@ if option == "Practice Session":
     st.sidebar.subheader("Practice Sections")
     practice_option = st.sidebar.selectbox("Choose a section:", ["Reading", "Listening", "Writing", "Speaking"])
 
-# Subsections under "writing"
-if practice_option == "Writing":
-    st.sidebar.subheader("Writing tasks")
-    writing_option = st.sidebar.selectbox("Choose a section:", ["Writing 1", "Writing 2"])    
+    # Subsections under "Writing"
+    if practice_option == "Writing":
+        st.sidebar.subheader("Writing tasks")
+        writing_option = st.sidebar.selectbox("Choose a section:", ["Writing 1", "Writing 2"])
+
+        # Clear the session state for writing tasks when switching between "Writing 1" and "Writing 2"
+        if 'previous_writing_option' not in st.session_state or st.session_state.previous_writing_option != writing_option:
+            st.session_state.clear()  # Clear session state to reset variables
+            st.session_state.previous_writing_option = writing_option
 
 # Display content based on the selection
 if option == "Practice Session":
     st.title(f"Practice Session: {practice_option}")
     st.write(f"Content for {practice_option} section will go here.")
+
+    # Display content for "Writing" and "Writing 1" or "Writing 2"
+    if practice_option == "Writing":
+        if writing_option == "Writing 1":
+            display_writing1_content()  # Call the function to display content from writing1.py
+        elif writing_option == "Writing 2":
+            display_writing2_content()  # Call the function to display content from writing2.py
+
 elif option == "Mock Tests":
     st.title("Mock Tests")
     st.write("Mock test content will go here.")

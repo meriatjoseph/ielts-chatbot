@@ -39,17 +39,31 @@ def create_vector_embedding():
     st.session_state.embeddings = OllamaEmbeddings()
     st.session_state.loader = PyPDFDirectoryLoader("research_papers")  # Data ingestion
     st.session_state.docs = st.session_state.loader.load()  # Document loading
+
+    if not st.session_state.docs:
+        st.error("No documents loaded. Please check the document loader.")
+        return
+
     st.session_state.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     st.session_state.final_documents = st.session_state.text_splitter.split_documents(st.session_state.docs)
-    st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
-    
-    # Extract writing tasks and associated images from the documents
+
+    if not st.session_state.final_documents:
+        st.error("Document splitting failed. Please check the text splitter.")
+        return
+
+    if not st.session_state.embeddings:
+        st.error("Embedding creation failed. Please check the embedding generator.")
+        return
+
+    if st.session_state.final_documents and st.session_state.embeddings:
+        st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
+    else:
+        st.error("Failed to create vectors. Documents or embeddings are empty.")
+        return
+
+    # Proceed with the rest of the function
     st.session_state.writing_tasks = extract_writing_tasks(st.session_state.final_documents)
-
-    # Shuffle tasks to improve variety
     random.shuffle(st.session_state.writing_tasks)
-
-    # Initialize used tasks tracker
     st.session_state.used_tasks = set()
 
 # Function to extract IELTS Writing Task 1 tasks and images from documents
@@ -140,49 +154,50 @@ def generate_llm_question():
     else:
         return {"text": "Vector embeddings are not yet ready.", "image": None}
 
-# Initialize embeddings and vector database on app start
-if "vectors" not in st.session_state:
-    create_vector_embedding()
+# Display function to be called from app.py
+def display_writing1_content():
+    st.title("IELTS Writing Task Generator")
+    
+    # Initialize embeddings and vector database on app start
+    if "vectors" not in st.session_state:
+        create_vector_embedding()
 
-# Streamlit UI
-st.title("IELTS Writing Task Generator")
+    # Display a single random Task 1 question and update only on button click
+    if 'question_generated' not in st.session_state:
+        st.session_state.question_generated = False
 
-# Display a single random Task 1 question and update only on button click
-if 'question_generated' not in st.session_state:
-    st.session_state.question_generated = False
+    def update_question():
+        st.session_state.current_task = generate_llm_question()
+        st.session_state.question_generated = True
 
-def update_question():
-    st.session_state.current_task = generate_llm_question()
-    st.session_state.question_generated = True
+    if st.button("Generate Random Writing Task"):
+        update_question()
 
-if st.button("Generate Random Writing Task"):
-    update_question()
+    if st.session_state.question_generated:
+        st.write("Random IELTS Writing Task 1 Question:")
+        st.write(st.session_state.current_task.get('text', 'No text available'))
 
-if st.session_state.question_generated:
-    st.write("Random IELTS Writing Task 1 Question:")
-    st.write(st.session_state.current_task.get('text', 'No text available'))
+        # Display the associated image if available
+        img = st.session_state.current_task.get('image')
+        if img:
+            st.image(img, caption="Associated Chart Image")
+        else:
+            st.write("No image available")
 
-    # Display the associated image if available
-    img = st.session_state.current_task.get('image')
-    if img:
-        st.image(img, caption="Associated Chart Image")
-    else:
-        st.write("No image available")
+    # Allow users to input custom queries
+    user_prompt = st.text_input("Enter your query:")
 
-# Allow users to input custom queries
-user_prompt = st.text_input("Enter your query:")
+    if user_prompt:
+        document_chain = create_stuff_documents_chain(llm, prompt)
+        retriever = st.session_state.vectors.as_retriever()
+        retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-if user_prompt:
-    document_chain = create_stuff_documents_chain(llm, prompt)
-    retriever = st.session_state.vectors.as_retriever()
-    retrieval_chain = create_retrieval_chain(retriever, document_chain)
+        start = time.process_time()
+        response = retrieval_chain.invoke({'input': user_prompt})
+        st.write(f"Response time: {time.process_time() - start}")
+        st.write(response['answer'])
 
-    start = time.process_time()
-    response = retrieval_chain.invoke({'input': user_prompt})
-    st.write(f"Response time: {time.process_time() - start}")
-    st.write(response['answer'])
-
-    with st.expander("Document similarity search"):
-        for i, doc in enumerate(response['context']):
-            st.write(doc.page_content)
-            st.write('--------------')
+        with st.expander("Document similarity search"):
+            for i, doc in enumerate(response['context']):
+                st.write(doc.page_content)
+                st.write('--------------')
