@@ -14,6 +14,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from PIL import Image
 import time
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -153,6 +154,71 @@ def generate_llm_question():
             return {"text": "No available unique tasks found.", "image": None}
     else:
         return {"text": "Vector embeddings are not yet ready.", "image": None}
+# Function to check grammar using LanguageTool
+def check_grammar_with_languagetool(text):
+    url = "https://api.languagetool.org/v2/check"
+    payload = {
+        "text": text,
+        "language": "en-US"
+    }
+    response = requests.post(url, data=payload)
+    response_json = response.json()
+    
+    #st.write("Grammar check response JSON:")
+    #st.json(response_json)  # Print the full JSON response for debugging
+    
+    corrected_text, band_score = apply_corrections(text, response_json)
+    return corrected_text, band_score, response_json
+
+# Function to apply corrections and calculate band score
+def apply_corrections(text, response_json):
+    matches = response_json.get('matches', [])
+    corrected_text = text
+    total_errors = len(matches)
+    task_response_score = 9  # Start with full points for each criterion
+    coherence_and_cohesion_score = 9
+    lexical_resource_score = 9
+    grammatical_range_and_accuracy_score = 9
+
+    # Apply corrections in reverse order to prevent indexing issues
+    for match in sorted(matches, key=lambda x: x['offset'], reverse=True):
+        offset = match['offset']
+        length = match['length']
+        replacements = match.get('replacements', [])
+        
+        if replacements:
+            best_replacement = replacements[0]['value']  # Take the most confident suggestion
+            corrected_text = corrected_text[:offset] + best_replacement + corrected_text[offset + length:]
+        
+        # Deduct points based on the type of error
+        issue_type = match.get('rule', {}).get('issueType')
+        if issue_type == 'misspelling':
+            lexical_resource_score -= 0.5  # Deduct 0.5 points for each misspelling
+        elif issue_type == 'grammar':
+            grammatical_range_and_accuracy_score -= 0.5  # Deduct 0.5 points for each grammar issue
+        elif issue_type == 'punctuation':
+            grammatical_range_and_accuracy_score -= 0.25  # Deduct 0.25 points for each punctuation issue
+        else:
+            lexical_resource_score -= 0.25  # Deduct 0.25 points for other issues
+
+    # Coherence and cohesion score adjustment
+    # Here we assume we get information from the analysis tool to evaluate coherence, which is not in the JSON.
+    # You might replace it with real data from your model.
+    # For example, if your logic finds that paragraphs aren't connected well, you could reduce this score.
+    # coherence_and_cohesion_score -= ...
+
+    # Ensure the scores do not go below 6 (minimum band score for the specified range)
+    task_response_score = max(task_response_score, 6)
+    coherence_and_cohesion_score = max(coherence_and_cohesion_score, 6)
+    lexical_resource_score = max(lexical_resource_score, 6)
+    grammatical_range_and_accuracy_score = max(grammatical_range_and_accuracy_score, 6)
+
+    # Calculate the band score as an average of all four components
+    band_score = (task_response_score + coherence_and_cohesion_score + lexical_resource_score + grammatical_range_and_accuracy_score) / 4
+
+    return corrected_text, band_score
+    
+
 
 # Display function to be called from app.py
 def display_writing1_content():
@@ -183,21 +249,51 @@ def display_writing1_content():
             st.image(img, caption="Associated Chart Image")
         else:
             st.write("No image available")
+    # User inputs their answer
+    user_answer = st.text_area("Enter your answer:")
 
-    # Allow users to input custom queries
-    user_prompt = st.text_input("Enter your query:")
+    if user_answer:
+        #st.write("Checking grammar...")
+        corrected_text, band_score, grammar_result = check_grammar_with_languagetool(user_answer)
+        
+        # Print the grammar result for debugging
+        #st.write("Grammar check result:")
+        #st.json(grammar_result)
+        
+        st.write("Corrected Text:")
+        st.write(corrected_text)
+        
+        st.write("Band Score:")
+        st.write(band_score)
+        
+        if 'matches' in grammar_result:
+            matches = grammar_result['matches']
+            if matches:
+                st.write("Here are some suggestions to improve your answer:")
+                for match in matches:
+                    st.write(f"Error: {match['context']['text']}")
+                    st.write(f"Suggestion: {', '.join([r['value'] for r in match['replacements']])}")
+                    st.write(f"Message: {match['message']}")
+                    st.write("---------------")
+            else:
+                st.write("No grammar issues found.")
+        else:
+            st.write("Unexpected grammar check result format.")
 
-    if user_prompt:
-        document_chain = create_stuff_documents_chain(llm, prompt)
-        retriever = st.session_state.vectors.as_retriever()
-        retrieval_chain = create_retrieval_chain(retriever, document_chain)
+    # # Allow users to input custom queries
+    # user_prompt = st.text_input("Enter your query:")
 
-        start = time.process_time()
-        response = retrieval_chain.invoke({'input': user_prompt})
-        st.write(f"Response time: {time.process_time() - start}")
-        st.write(response['answer'])
+    # if user_prompt:
+    #     document_chain = create_stuff_documents_chain(llm, prompt)
+    #     retriever = st.session_state.vectors.as_retriever()
+    #     retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-        with st.expander("Document similarity search"):
-            for i, doc in enumerate(response['context']):
-                st.write(doc.page_content)
-                st.write('--------------')
+    #     start = time.process_time()
+    #     response = retrieval_chain.invoke({'input': user_prompt})
+    #     st.write(f"Response time: {time.process_time() - start}")
+    #     st.write(response['answer'])
+
+    #     with st.expander("Document similarity search"):
+    #         for i, doc in enumerate(response['context']):
+    #             st.write(doc.page_content)
+    #             st.write('--------------')
