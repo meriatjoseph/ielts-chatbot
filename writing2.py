@@ -80,11 +80,8 @@ def check_grammar_with_languagetool(text):
     response = requests.post(url, data=payload)
     response_json = response.json()
     
-    #st.write("Grammar check response JSON:")
-    #st.json(response_json)  # Print the full JSON response for debugging
-    
-    corrected_text, band_score = apply_corrections(text, response_json)
-    return corrected_text, band_score, response_json
+    corrected_text, band_score, scores = apply_corrections(text, response_json)
+    return corrected_text, band_score, scores, response_json
 
 # Function to apply corrections and calculate band score
 def apply_corrections(text, response_json):
@@ -92,7 +89,6 @@ def apply_corrections(text, response_json):
     corrected_text = text
     total_errors = len(matches)
     task_response_score = 9  # Start with full points for each criterion
-    coherence_and_cohesion_score = 9
     lexical_resource_score = 9
     grammatical_range_and_accuracy_score = 9
 
@@ -117,22 +113,21 @@ def apply_corrections(text, response_json):
         else:
             lexical_resource_score -= 0.25  # Deduct 0.25 points for other issues
 
-    # Coherence and cohesion score adjustment
-    # Here we assume we get information from the analysis tool to evaluate coherence, which is not in the JSON.
-    # You might replace it with real data from your model.
-    # For example, if your logic finds that paragraphs aren't connected well, you could reduce this score.
-    # coherence_and_cohesion_score -= ...
+    # Ensure the scores do not go below 0 (minimum score)
+    task_response_score = max(task_response_score, 0)
+    lexical_resource_score = max(lexical_resource_score, 0)
+    grammatical_range_and_accuracy_score = max(grammatical_range_and_accuracy_score, 0)
 
-    # Ensure the scores do not go below 6 (minimum band score for the specified range)
-    task_response_score = max(task_response_score, 6)
-    coherence_and_cohesion_score = max(coherence_and_cohesion_score, 6)
-    lexical_resource_score = max(lexical_resource_score, 6)
-    grammatical_range_and_accuracy_score = max(grammatical_range_and_accuracy_score, 6)
+    # Calculate the band score as an average of all three components
+    band_score = (task_response_score + lexical_resource_score + grammatical_range_and_accuracy_score) / 3
 
-    # Calculate the band score as an average of all four components
-    band_score = (task_response_score + coherence_and_cohesion_score + lexical_resource_score + grammatical_range_and_accuracy_score) / 4
+    # Return the corrected text, band score, and individual component scores
+    return corrected_text, band_score, {
+        'Task Response': task_response_score,
+        'Lexical Resource': lexical_resource_score,
+        'Grammatical Range and Accuracy': grammatical_range_and_accuracy_score
+    }
 
-    return corrected_text, band_score
 # Display function to be called from app.py
 def display_writing2_content():
     st.title("IELTS Writing Task Generator")
@@ -163,8 +158,7 @@ def display_writing2_content():
     user_answer = st.text_area("Enter your answer:")
 
     if user_answer:
-        #st.write("Checking grammar...")
-        corrected_text, band_score, grammar_result = check_grammar_with_languagetool(user_answer)
+        corrected_text, band_score, scores, grammar_result = check_grammar_with_languagetool(user_answer)
         
         # Print the grammar result for debugging
         #st.write("Grammar check result:")
@@ -173,8 +167,14 @@ def display_writing2_content():
         st.write("Corrected Text:")
         st.write(corrected_text)
         
-        st.write("Band Score:")
-        st.write(band_score)
+        # Check if the score is below 6
+        if band_score < 6:
+            st.write("Band Score: Test Failed")
+        else:
+            st.write(f"Band Score: {band_score:.1f}")
+
+        st.write("Individual Scores:")
+        st.write(scores)
         
         if 'matches' in grammar_result:
             matches = grammar_result['matches']
@@ -189,30 +189,3 @@ def display_writing2_content():
                 st.write("No grammar issues found.")
         else:
             st.write("Unexpected grammar check result format.")
-
-    # Allow users to input custom queries
-    #user_prompt = st.text_input("Enter your query:")
-
-    # if user_prompt:
-    #     retriever = st.session_state.vectors.as_retriever()
-    #     document_chain = RetrievalQA.from_chain_type(
-    #         llm=llm,
-    #         chain_type="stuff",
-    #         retriever=retriever
-    #     )
-        # start = time.process_time()
-        # response = document_chain({"query": user_prompt})
-        
-        # st.write(f"Response time: {time.process_time() - start}")
-        # st.write("Response from LLM:")
-        # st.json(response)  # Print the full response for debugging
-        
-        # Adjust according to the actual structure of response
-        # answer = response.get('answer', 'No answer found in the response.')
-        # st.write(answer)
-        
-        # if 'context' in response:
-        #     with st.expander("Document similarity search"):
-        #         for i, doc in enumerate(response['context']):
-        #             st.write(doc.page_content)
-        #             st.write('--------------')
