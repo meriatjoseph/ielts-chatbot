@@ -49,6 +49,7 @@ def extract_writing_tasks(documents):
         if "Task 2" in doc.page_content:  # Assuming that "Task 2" indicates a writing prompt
             tasks.append(doc.page_content)
     return tasks
+
 # Function to generate a random question using the LLM
 def generate_llm_question():
     if "vectors" in st.session_state:
@@ -60,16 +61,14 @@ def generate_llm_question():
         )
         response = document_chain({"query": "Generate a random IELTS Writing Task"})
         
-        #st.write("Response from LLM:")
-        #st.json(response)  # Print the full response for debugging
+        st.write("Response from LLM:")
+        st.json(response)  # Print the full response for debugging
 
         # Adjust according to the actual structure of response
-        # Extract only the 'result' part from the response
-        answer = response.get('result', 'No answer found in the response.')
+        answer = response.get('answer', 'No answer found in the response.')
         return answer
     else:
         return "Vector embeddings are not yet ready."
-
 
 # Function to check grammar using LanguageTool
 def check_grammar_with_languagetool(text):

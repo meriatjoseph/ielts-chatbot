@@ -2,6 +2,7 @@ import os
 import io
 import fitz  # PyMuPDF
 import random
+import bs4
 from dotenv import load_dotenv
 import streamlit as st
 from langchain_groq import ChatGroq
@@ -12,8 +13,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_community.document_loaders import WebBaseLoader
 from PIL import Image
-import time
 import requests
 
 # Load environment variables
@@ -35,37 +36,94 @@ prompt_template = ChatPromptTemplate.from_template(
     Task: Generate a similar IELTS Writing Task 1 prompt."""
 )
 
+# Function to extract IELTS Writing Task 1 questions and images from web documents
+def extract_writing_tasks_from_web(urls):
+    tasks = []
+    
+    # Loop through each URL and perform web scraping
+    for url in urls:
+        print(f"Processing URL: {url}")
+
+        try:
+            # Make an HTTP GET request to fetch the page content
+            response = requests.get(url)
+            response.raise_for_status()  # Raise an error for bad responses
+
+            # Parse the HTML content with BeautifulSoup
+            soup = bs4.BeautifulSoup(response.text, "html.parser")
+            
+            # Find all elements with the specified class for text
+            elements = soup.find_all("div", class_="et_pb_section et_pb_section_0 et_section_regular")
+            print(f"Number of elements found: {len(elements)}")  # Print the number of elements found
+
+            # Loop through each element and extract the text and image
+            for element in elements:
+                task = element.get_text(strip=True)
+                if task:  # Ensure the task is not empty
+                    # Attempt to find an associated image
+                    img_tag = element.find_next("img")  # Find the first image following the element
+                    img_url = img_tag['src'] if img_tag and 'src' in img_tag.attrs else None
+
+                    # Append the task with text and image URL separately
+                    tasks.append({
+                        "text": task,
+                        "image_url": img_url
+                    })
+                    
+                    print(f"Extracted Task: {task}")  # Debugging log
+                    if img_url:
+                        print(f"Extracted Image URL: {img_url}")  # Debugging log
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error processing {url}: {e}")
+
+    return tasks
+
+# Function to generate IELTS Writing Test URLs with leading zeros
+def generate_ielts_test_urls():
+    base_url = "https://ieltstrainingonline.com/ielts-writing-practice-test-"
+    urls = [f"{base_url}{i:02d}/" for i in range(1, 100)]  
+    return urls
+
+# Generate the test URLs
+ielts_test_urls = generate_ielts_test_urls()
+
+# Extract writing tasks from web documents
+writing_tasks = extract_writing_tasks_from_web(ielts_test_urls)
+
 # Function to create vector embeddings and load documents
 def create_vector_embedding():
-    st.session_state.embeddings = OllamaEmbeddings()
-    st.session_state.loader = PyPDFDirectoryLoader("research_papers")  # Data ingestion
-    st.session_state.docs = st.session_state.loader.load()  # Document loading
+    embeddings = OllamaEmbeddings()
+    loader = PyPDFDirectoryLoader("research_papers")  # Data ingestion
+    pdf_docs = loader.load()  # Document loading
 
-    if not st.session_state.docs:
-        st.error("No documents loaded. Please check the document loader.")
+    if not pdf_docs:
+        st.error("No documents loaded from PDF. Please check the document loader.")
         return
 
-    st.session_state.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    st.session_state.final_documents = st.session_state.text_splitter.split_documents(st.session_state.docs)
+    # Combine documents from web scraping and PDF loading
+    docs = pdf_docs + writing_tasks
 
-    if not st.session_state.final_documents:
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    final_documents = text_splitter.split_documents(docs)
+
+    if not final_documents:
         st.error("Document splitting failed. Please check the text splitter.")
         return
 
-    if not st.session_state.embeddings:
+    if not embeddings:
         st.error("Embedding creation failed. Please check the embedding generator.")
         return
 
-    if st.session_state.final_documents and st.session_state.embeddings:
-        st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
+    if final_documents and embeddings:
+        vectors = FAISS.from_documents(final_documents, embeddings)
     else:
         st.error("Failed to create vectors. Documents or embeddings are empty.")
         return
 
-    # Proceed with the rest of the function
-    st.session_state.writing_tasks = extract_writing_tasks(st.session_state.final_documents)
-    random.shuffle(st.session_state.writing_tasks)
-    st.session_state.used_tasks = set()
+    # Extract tasks for RAG-based question generation
+    extracted_tasks = extract_writing_tasks(final_documents)  # Use a different variable name to avoid conflicts
+    random.shuffle(extracted_tasks)
 
 # Function to extract IELTS Writing Task 1 tasks and images from documents
 def extract_writing_tasks(documents):
@@ -74,7 +132,7 @@ def extract_writing_tasks(documents):
 
     for i, doc in enumerate(documents):
         content = doc.page_content
-        pdf_path = doc.metadata.get('source')
+        pdf_path = doc.metadata.get('source', 'Unknown source')
         page_number = doc.metadata.get('page_number', 1)
 
         # Log to check which document and page is being processed
@@ -136,6 +194,7 @@ def extract_images_from_pdf(pdf_path, start_page=1):
 
 # Function to generate a similar question using RAG approach
 def generate_similar_question_with_rag():
+    # Ensure vector embeddings are available
     if "vectors" in st.session_state:
         retriever = st.session_state.vectors.as_retriever()  # Use the vector store as retriever
         document_chain = create_stuff_documents_chain(llm, prompt_template)  # Create the document chain with LLM and prompt
@@ -243,37 +302,25 @@ def apply_corrections(text, response_json):
     band_score = (task_response_score + coherence_and_cohesion_score + lexical_resource_score + grammatical_range_and_accuracy_score) / 4
 
     return corrected_text, band_score
-
-# Display function to be called from app.py
 def display_writing1_content():
     st.title("IELTS Writing Task Generator")
-    
-    # Initialize embeddings and vector database on app start
-    if "vectors" not in st.session_state:
-        create_vector_embedding()
 
-    # Display a single random Task 1 question and update only on button click
-    if 'question_generated' not in st.session_state:
-        st.session_state.question_generated = False
+    # Randomly select a question and display when button is clicked
+    if st.button("Generate Random Writing Task"):
+        if writing_tasks:
+            random_task = random.choice(writing_tasks)
+            st.write("Random IELTS Writing Task 1 Question:")
+            st.write(random_task['text'])
+            
+            # Display the current URL
+            current_url = ielts_test_urls[writing_tasks.index(random_task)]
+            st.write(f"Source URL: {current_url}")
 
-    def update_question():
-        st.session_state.current_task = generate_similar_question_with_rag()
-        st.session_state.question_generated = True
-
-    if st.button("Generate Similar Writing Task"):
-        update_question()
-
-    if st.session_state.question_generated:
-        st.write("Similar IELTS Writing Task 1 Question:")
-        st.write(st.session_state.current_task.get('text', 'No text available'))
-
-        # Display the associated image if available
-        img = st.session_state.current_task.get('image')
-        if img:
-            st.image(img, caption="Associated Chart Image")
+            if random_task['image_url']:
+                st.image(random_task['image_url'], caption="Associated Image")
         else:
-            st.write("No image available")
-
+            st.write("No tasks available to display.")
+    
     # User inputs their answer
     user_answer = st.text_area("Enter your answer:")
 
@@ -299,3 +346,7 @@ def display_writing1_content():
                 st.write("No grammar issues found.")
         else:
             st.write("Unexpected grammar check result format.")
+
+# Run the Streamlit app
+if __name__ == "__main__":
+    display_writing1_content()
