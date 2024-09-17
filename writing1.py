@@ -36,7 +36,7 @@ prompt_template = ChatPromptTemplate.from_template(
     Task: Generate a similar IELTS Writing Task 1 prompt."""
 )
 
-# Function to extract IELTS Writing Task 1 questions and images from web documents
+# Function to extract IELTS Writing Task 1 questions, images, and sample answers from web documents
 def extract_writing_tasks_from_web(urls):
     tasks = []
     
@@ -64,15 +64,22 @@ def extract_writing_tasks_from_web(urls):
                     img_tag = element.find_next("img")  # Find the first image following the element
                     img_url = img_tag['src'] if img_tag and 'src' in img_tag.attrs else None
 
-                    # Append the task with text and image URL separately
+                    # Find the sample answer
+                    sample_answer_div = soup.find("div", class_="et_pb_toggle_content clearfix")
+                    sample_answer = sample_answer_div.get_text(strip=True) if sample_answer_div else None
+
+                    # Append the task with text, image URL, and sample answer
                     tasks.append({
                         "text": task,
-                        "image_url": img_url
+                        "image_url": img_url,
+                        "sample_answer": sample_answer
                     })
                     
                     print(f"Extracted Task: {task}")  # Debugging log
                     if img_url:
                         print(f"Extracted Image URL: {img_url}")  # Debugging log
+                    if sample_answer:
+                        print(f"Extracted Sample Answer: {sample_answer}")  # Debugging log
 
         except requests.exceptions.RequestException as e:
             print(f"Error processing {url}: {e}")
@@ -192,6 +199,29 @@ def extract_images_from_pdf(pdf_path, start_page=1):
     
     return images
 
+# Function to check the correctness of the user's answer using LLM
+def check_answer_correctness(user_answer, sample_answer):
+    if not user_answer or not sample_answer:
+        return "Insufficient data to check correctness."
+
+    # Construct the messages as a list of dictionaries
+    messages = [
+        {"role": "assistant", "content": "You are an expert in evaluating IELTS writing tasks."},
+        {"role": "user", "content": f"Compare the following two texts and provide feedback on how similar they are in terms of content and structure. Identify if the user's answer covers the same key points as the sample answer, whether it maintains coherence, and if there are any significant omissions or inaccuracies.\n\nSample Answer:\n{sample_answer}\n\nUser's Answer:\n{user_answer}\n\nFeedback:"}
+    ]
+
+    # Generate feedback using LLM
+    response = llm.generate(messages=messages)
+
+    # Extract feedback from the response
+    feedback = response.get('choices', [{}])[0].get('message', {}).get('content', "Could not generate feedback.")
+
+    return feedback
+
+
+
+
+
 # Function to generate a similar question using RAG approach
 def generate_similar_question_with_rag():
     # Ensure vector embeddings are available
@@ -302,22 +332,35 @@ def apply_corrections(text, response_json):
     band_score = (task_response_score + coherence_and_cohesion_score + lexical_resource_score + grammatical_range_and_accuracy_score) / 4
 
     return corrected_text, band_score
+
 def display_writing1_content():
     st.title("IELTS Writing Task Generator")
+
+    # Use Streamlit session state to store random_task
+    if 'random_task' not in st.session_state:
+        st.session_state.random_task = None  # Initialize random_task in session state
 
     # Randomly select a question and display when button is clicked
     if st.button("Generate Random Writing Task"):
         if writing_tasks:
-            random_task = random.choice(writing_tasks)
+            st.session_state.random_task = random.choice(writing_tasks)
             st.write("Random IELTS Writing Task 1 Question:")
-            st.write(random_task['text'])
+            st.write(st.session_state.random_task['text'])
             
             # Display the current URL
-            current_url = ielts_test_urls[writing_tasks.index(random_task)]
+            current_url = ielts_test_urls[writing_tasks.index(st.session_state.random_task)]
             st.write(f"Source URL: {current_url}")
 
-            if random_task['image_url']:
-                st.image(random_task['image_url'], caption="Associated Image")
+            # Display associated image if available
+            if st.session_state.random_task['image_url']:
+                st.image(st.session_state.random_task['image_url'], caption="Associated Image")
+            
+            # Display the sample answer if available
+            if st.session_state.random_task['sample_answer']:
+                st.write("Sample Answer:")
+                st.write(st.session_state.random_task['sample_answer'])
+            else:
+                st.write("No sample answer available.")
         else:
             st.write("No tasks available to display.")
     
@@ -325,6 +368,7 @@ def display_writing1_content():
     user_answer = st.text_area("Enter your answer:")
 
     if user_answer:
+        # Check grammar using LanguageTool
         corrected_text, band_score, grammar_result = check_grammar_with_languagetool(user_answer)
         
         st.write("Corrected Text:")
@@ -333,6 +377,7 @@ def display_writing1_content():
         st.write("Band Score:")
         st.write(band_score)
         
+        # Display grammar suggestions
         if 'matches' in grammar_result:
             matches = grammar_result['matches']
             if matches:
@@ -346,6 +391,14 @@ def display_writing1_content():
                 st.write("No grammar issues found.")
         else:
             st.write("Unexpected grammar check result format.")
+
+        # Check correctness using LLM if a sample answer is available
+        if st.session_state.random_task and st.session_state.random_task.get('sample_answer'):
+            feedback = check_answer_correctness(user_answer, st.session_state.random_task['sample_answer'])
+            st.write("Answer Correctness Feedback:")
+            st.write(feedback)
+        else:
+            st.write("No sample answer available to check correctness.")
 
 # Run the Streamlit app
 if __name__ == "__main__":
