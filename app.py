@@ -2,7 +2,7 @@ import streamlit as st  # Import Streamlit
 from writing1 import display_writing1_content  # Import the function to display content from writing1.py
 from writing2 import display_writing2_content  # Import the function to display content from writing2.py
 
-# Set the page configurations
+# Set the page configurations - This must be the first Streamlit command
 st.set_page_config(page_title="IELTS Practice", layout="wide")
 
 # Sidebar with a heading "Features"

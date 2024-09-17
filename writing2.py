@@ -2,15 +2,10 @@ import os
 import random
 from dotenv import load_dotenv
 import streamlit as st
-from langchain_openai import ChatOpenAI  # Correct import for ChatOpenAI
-from langchain.embeddings import OpenAIEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.chains import RetrievalQA
-from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import PyPDFDirectoryLoader
-from langchain.schema import HumanMessage  # Import HumanMessage to create a message
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage
 import requests
-import time
+import bs4  # Ensure BeautifulSoup is imported
 
 # Load environment variables
 load_dotenv()
@@ -19,179 +14,92 @@ open_api_key = os.getenv('OPEN_API_KEY')
 # Initialize LLM with Chat Model
 llm = ChatOpenAI(model="gpt-4", api_key=open_api_key)
 
-# Define the prompt template for generating IELTS writing tasks
-from langchain.prompts import PromptTemplate
-
-prompt = PromptTemplate.from_template(
-    """Based on the content provided, generate a random IELTS Writing Task 2 prompt.
-    Do not include any answers or explanations, just the task prompt.
-    
-    <context>
-    {context}
-    </context>
-
-    Task: Generate an IELTS Writing Task 2 prompt."""
-)
-
-# Function to create vector embeddings and load documents
-def create_vector_embedding():
-    st.session_state.embeddings = OpenAIEmbeddings()
-    st.session_state.loader = PyPDFDirectoryLoader("task2_writing")  # Data ingestion
-    st.session_state.docs = st.session_state.loader.load()  # Document loading
-    st.session_state.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    st.session_state.final_documents = st.session_state.text_splitter.split_documents(st.session_state.docs)
-    st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
-    st.session_state.writing_tasks = extract_writing_tasks(st.session_state.final_documents)
-
-# Function to extract IELTS writing tasks from documents
-def extract_writing_tasks(documents):
+# Function to extract IELTS Writing Task 2 questions and sample answers from web documents
+def extract_writing_tasks_from_web(urls):
     tasks = []
-    for doc in documents:
-        if "Task 2" in doc.page_content:  # Assuming that "Task 2" indicates a writing prompt
-            tasks.append(doc.page_content)
+    for url in urls:
+        print(f"Processing URL: {url}")
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            soup = bs4.BeautifulSoup(response.text, "html.parser")
+            
+            # Find the elements for Task 2 questions
+            elements = soup.find_all("div", class_="et_pb_section et_pb_section_1 et_section_regular")
+            print(f"Number of Task 2 question elements found: {len(elements)}")
+            
+            for element in elements:
+                task = element.get_text(strip=True)
+                if task:
+                    # Find the parent div for the sample answer
+                    sample_answer_parent_div = soup.find("div", class_="et_pb_module et_pb_toggle et_pb_toggle_1 et_pb_toggle_item et_pb_toggle_close")
+                    # Find the specific div within the parent
+                    sample_answer_div = sample_answer_parent_div.find("div", class_="et_pb_toggle_content clearfix") if sample_answer_parent_div else None
+                    
+                    # Extract all text content within the div, including p, span, and other nested tags
+                    if sample_answer_div:
+                        sample_answer = sample_answer_div.get_text(separator=' ', strip=True)
+                    else:
+                        sample_answer = None
+                    
+                    # Append the extracted data to tasks
+                    tasks.append({
+                        "text": task,
+                        "sample_answer": sample_answer,
+                        "url": url  # Add the current URL to the task data
+                    })
+        except requests.exceptions.RequestException as e:
+            print(f"Error processing {url}: {e}")
     return tasks
 
-# Function to generate a random question using the LLM
-def generate_llm_question():
-    if "vectors" in st.session_state:
-        retriever = st.session_state.vectors.as_retriever()
-        document_chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            chain_type="stuff",
-            retriever=retriever
-        )
+# Function to generate IELTS Writing Test URLs with leading zeros
+def generate_ielts_test_urls():
+    base_url = "https://ieltstrainingonline.com/ielts-writing-practice-test-"
+    urls = [f"{base_url}{i:02d}/" for i in range(1, 11)]  
+    return urls
 
-        # Properly format the messages for the chat endpoint
-        response = llm([HumanMessage(content="Generate a random IELTS Writing Task")])
-        
-        # Access the content directly from the response
-        if response:
-            # Directly use the content of the AIMessage object
-            answer = response.content
-        else:
-            answer = 'No answer found in the response.'
+# Generate the test URLs
+ielts_test_urls = generate_ielts_test_urls()
 
-        return answer
-    else:
-        return "Vector embeddings are not yet ready."
+# Extract writing tasks from web documents for Writing Task 2
+writing_tasks = extract_writing_tasks_from_web(ielts_test_urls)
 
-
-# Function to check grammar using LanguageTool
-def check_grammar_with_languagetool(text):
-    url = "https://api.languagetool.org/v2/check"
-    payload = {
-        "text": text,
-        "language": "en-US"
-    }
-    response = requests.post(url, data=payload)
-    response_json = response.json()
-    
-    corrected_text, band_score, scores = apply_corrections(text, response_json)
-    return corrected_text, band_score, scores, response_json
-
-# Function to apply corrections and calculate band score
-def apply_corrections(text, response_json):
-    matches = response_json.get('matches', [])
-    corrected_text = text
-    total_errors = len(matches)
-    task_response_score = 9  # Start with full points for each criterion
-    lexical_resource_score = 9
-    grammatical_range_and_accuracy_score = 9
-
-    # Apply corrections in reverse order to prevent indexing issues
-    for match in sorted(matches, key=lambda x: x['offset'], reverse=True):
-        offset = match['offset']
-        length = match['length']
-        replacements = match.get('replacements', [])
-        
-        if replacements:
-            best_replacement = replacements[0]['value']  # Take the most confident suggestion
-            corrected_text = corrected_text[:offset] + best_replacement + corrected_text[offset + length:]
-        
-        # Deduct points based on the type of error
-        issue_type = match.get('rule', {}).get('issueType')
-        if issue_type == 'misspelling':
-            lexical_resource_score -= 0.5  # Deduct 0.5 points for each misspelling
-        elif issue_type == 'grammar':
-            grammatical_range_and_accuracy_score -= 0.5  # Deduct 0.5 points for each grammar issue
-        elif issue_type == 'punctuation':
-            grammatical_range_and_accuracy_score -= 0.25  # Deduct 0.25 points for each punctuation issue
-        else:
-            lexical_resource_score -= 0.25  # Deduct 0.25 points for other issues
-
-    # Ensure the scores do not go below 0 (minimum score)
-    task_response_score = max(task_response_score, 0)
-    lexical_resource_score = max(lexical_resource_score, 0)
-    grammatical_range_and_accuracy_score = max(grammatical_range_and_accuracy_score, 0)
-
-    # Calculate the band score as an average of all three components
-    band_score = (task_response_score + lexical_resource_score + grammatical_range_and_accuracy_score) / 3
-
-    # Return the corrected text, band score, and individual component scores
-    return corrected_text, band_score, {
-        'Task Response': task_response_score,
-        'Lexical Resource': lexical_resource_score,
-        'Grammatical Range and Accuracy': grammatical_range_and_accuracy_score
-    }
-
-# Display function to be called from app.py
+# Streamlit UI Function to display content
 def display_writing2_content():
     st.title("IELTS Writing Task Generator")
-    
-    # Initialize embeddings and vector database on app start
-    if "vectors" not in st.session_state:
-        create_vector_embedding()
 
-    # Streamlit UI
-    #st.title("IELTS Writing Task Generator and Analyzer")
+    # Ensure that writing tasks have been extracted
+    if not writing_tasks:
+        st.write("No writing tasks found. Please check the URL or extraction logic.")
+        return
 
-    # Display a single random Task 2 question and update only on button click
+    # Initialize session state for question generation
     if 'question_generated' not in st.session_state:
         st.session_state.question_generated = False
 
+    # Function to update question on button click
     def update_question():
-        st.session_state.current_task = generate_llm_question()
+        # Randomly select a task from the extracted tasks
+        selected_task = random.choice(writing_tasks)
+        st.session_state.current_task = selected_task
         st.session_state.question_generated = True
 
+    # Button to generate a random Writing Task 2 question
     if st.button("Generate Random Writing Task"):
         update_question()
 
+    # Display the randomly generated question and sample answer
     if st.session_state.question_generated:
         st.write("Random IELTS Writing Task 2 Question:")
-        st.write(st.session_state.current_task)
+        st.write(st.session_state.current_task["text"])
 
-    # User inputs their answer
-    user_answer = st.text_area("Enter your answer:")
+        # Display the URL associated with the question
+        st.write("Source URL:")
+        st.write(st.session_state.current_task["url"])
 
-    if user_answer:
-        corrected_text, band_score, scores, grammar_result = check_grammar_with_languagetool(user_answer)
-        
-        # Print the grammar result for debugging
-        #st.write("Grammar check result:")
-        #st.json(grammar_result)
-        
-        st.write("Corrected Text:")
-        st.write(corrected_text)
-        
-        # Check if the score is below 6
-        if band_score < 6:
-            st.write("Band Score: Test Failed")
+        if st.session_state.current_task["sample_answer"]:
+            st.write("Sample Answer:")
+            st.write(st.session_state.current_task["sample_answer"])
         else:
-            st.write(f"Band Score: {band_score:.1f}")
+            st.write("No sample answer available for this task.")
 
-        st.write("Individual Scores:")
-        st.write(scores)
-        
-        if 'matches' in grammar_result:
-            matches = grammar_result['matches']
-            if matches:
-                st.write("Here are some suggestions to improve your answer:")
-                for match in matches:
-                    st.write(f"Error: {match['context']['text']}")
-                    st.write(f"Suggestion: {', '.join([r['value'] for r in match['replacements']])}")
-                    st.write(f"Message: {match['message']}")
-                    st.write("---------------")
-            else:
-                st.write("No grammar issues found.")
-        else:
-            st.write("Unexpected grammar check result format.")

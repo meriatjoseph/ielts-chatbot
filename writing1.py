@@ -41,7 +41,7 @@ def extract_writing_tasks_from_web(urls):
             response.raise_for_status()
             soup = bs4.BeautifulSoup(response.text, "html.parser")
             elements = soup.find_all("div", class_="et_pb_section et_pb_section_0 et_section_regular")
-            print(f"Number of elements found: {len(elements)}")
+            print(f"Number of Task 1 question elements found: {len(elements)}")
             for element in elements:
                 task = element.get_text(strip=True)
                 if task:
