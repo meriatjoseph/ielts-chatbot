@@ -5,8 +5,8 @@ import random
 import bs4
 from dotenv import load_dotenv
 import streamlit as st
-from langchain_groq import ChatGroq
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain.embeddings import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,15 +14,16 @@ from langchain.chains import create_retrieval_chain
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_community.document_loaders import WebBaseLoader
+from langchain.schema import HumanMessage, SystemMessage
 from PIL import Image
 import requests
 
 # Load environment variables
 load_dotenv()
-groq_api_key = os.getenv('GROQ_API_KEY')
+open_api_key = os.getenv('OPEN_API_KEY')
 
 # Initialize LLM
-llm = ChatGroq(model="llama3-8b-8192", groq_api_key=groq_api_key)
+llm = ChatOpenAI(model="gpt-4", api_key=open_api_key)
 
 # Define the prompt template for generating similar IELTS writing tasks
 prompt_template = ChatPromptTemplate.from_template(
@@ -100,7 +101,7 @@ writing_tasks = extract_writing_tasks_from_web(ielts_test_urls)
 
 # Function to create vector embeddings and load documents
 def create_vector_embedding():
-    embeddings = OllamaEmbeddings()
+    embeddings = OpenAIEmbeddings()
     loader = PyPDFDirectoryLoader("research_papers")  # Data ingestion
     pdf_docs = loader.load()  # Document loading
 
@@ -204,22 +205,21 @@ def check_answer_correctness(user_answer, sample_answer):
     if not user_answer or not sample_answer:
         return "Insufficient data to check correctness."
 
-    # Construct the messages as a list of dictionaries
+    # Create messages using SystemMessage and HumanMessage
     messages = [
-        {"role": "assistant", "content": "You are an expert in evaluating IELTS writing tasks."},
-        {"role": "user", "content": f"Compare the following two texts and provide feedback on how similar they are in terms of content and structure. Identify if the user's answer covers the same key points as the sample answer, whether it maintains coherence, and if there are any significant omissions or inaccuracies.\n\nSample Answer:\n{sample_answer}\n\nUser's Answer:\n{user_answer}\n\nFeedback:"}
+        SystemMessage(content="You are an expert in evaluating IELTS writing tasks."),
+        HumanMessage(content=f"Evaluate the following text based on its content, coherence, structure, and overall quality. "
+                             f"Provide feedback on the strengths and weaknesses of the response, focusing on clarity, grammar, and relevance to the task."
+                             f"\n\nUser's Answer:\n{user_answer}\n\nFeedback:")
     ]
 
     # Generate feedback using LLM
-    response = llm.generate(messages=messages)
+    response = llm(messages=messages)  # Adjusting the function call here
 
     # Extract feedback from the response
-    feedback = response.get('choices', [{}])[0].get('message', {}).get('content', "Could not generate feedback.")
+    feedback = response.content if response else "Could not generate feedback."
 
     return feedback
-
-
-
 
 
 # Function to generate a similar question using RAG approach
