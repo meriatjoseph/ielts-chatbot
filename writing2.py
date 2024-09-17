@@ -2,21 +2,22 @@ import os
 import random
 from dotenv import load_dotenv
 import streamlit as st
-from langchain_groq import ChatGroq
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_openai import ChatOpenAI  # Correct import for ChatOpenAI
+from langchain.embeddings import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain.schema import HumanMessage  # Import HumanMessage to create a message
 import requests
 import time
 
 # Load environment variables
 load_dotenv()
-groq_api_key = os.getenv('GROQ_API_KEY')
+open_api_key = os.getenv('OPEN_API_KEY')
 
-# Initialize LLM
-llm = ChatGroq(model="llama3-8b-8192", groq_api_key=groq_api_key)
+# Initialize LLM with Chat Model
+llm = ChatOpenAI(model="gpt-4", api_key=open_api_key)
 
 # Define the prompt template for generating IELTS writing tasks
 from langchain.prompts import PromptTemplate
@@ -34,7 +35,7 @@ prompt = PromptTemplate.from_template(
 
 # Function to create vector embeddings and load documents
 def create_vector_embedding():
-    st.session_state.embeddings = OllamaEmbeddings()
+    st.session_state.embeddings = OpenAIEmbeddings()
     st.session_state.loader = PyPDFDirectoryLoader("task2_writing")  # Data ingestion
     st.session_state.docs = st.session_state.loader.load()  # Document loading
     st.session_state.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -49,6 +50,7 @@ def extract_writing_tasks(documents):
         if "Task 2" in doc.page_content:  # Assuming that "Task 2" indicates a writing prompt
             tasks.append(doc.page_content)
     return tasks
+
 # Function to generate a random question using the LLM
 def generate_llm_question():
     if "vectors" in st.session_state:
@@ -58,14 +60,17 @@ def generate_llm_question():
             chain_type="stuff",
             retriever=retriever
         )
-        response = document_chain({"query": "Generate a random IELTS Writing Task"})
-        
-        #st.write("Response from LLM:")
-        #st.json(response)  # Print the full response for debugging
 
-        # Adjust according to the actual structure of response
-        # Extract only the 'result' part from the response
-        answer = response.get('result', 'No answer found in the response.')
+        # Properly format the messages for the chat endpoint
+        response = llm([HumanMessage(content="Generate a random IELTS Writing Task")])
+        
+        # Access the content directly from the response
+        if response:
+            # Directly use the content of the AIMessage object
+            answer = response.content
+        else:
+            answer = 'No answer found in the response.'
+
         return answer
     else:
         return "Vector embeddings are not yet ready."
