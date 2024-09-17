@@ -201,16 +201,20 @@ def extract_images_from_pdf(pdf_path, start_page=1):
     return images
 
 # Function to check the correctness of the user's answer using LLM
-def check_answer_correctness(user_answer, sample_answer):
-    if not user_answer or not sample_answer:
+def check_answer_correctness(question, user_answer, sample_answer):
+    if not user_answer or not sample_answer or not question:
         return "Insufficient data to check correctness."
 
     # Create messages using SystemMessage and HumanMessage
     messages = [
         SystemMessage(content="You are an expert in evaluating IELTS writing tasks."),
-        HumanMessage(content=f"Evaluate the following text based on its content, coherence, structure, and overall quality. "
-                             f"Provide feedback on the strengths and weaknesses of the response, focusing on clarity, grammar, and relevance to the task."
-                             f"\n\nUser's Answer:\n{user_answer}\n\nFeedback:")
+        HumanMessage(content=f"Evaluate the following user's answer for an IELTS writing task based on the provided question and sample answer. "
+                             f"Provide detailed feedback on the coherence, structure, grammar, vocabulary usage, relevance to the task, and overall quality. "
+                             f"Highlight the strengths and areas for improvement in the user's answer.\n\n"
+                             f"Question:\n{question}\n\n"
+                             f"Sample Answer:\n{sample_answer}\n\n"
+                             f"User's Answer:\n{user_answer}\n\n"
+                             f"Feedback:")
     ]
 
     # Generate feedback using LLM
@@ -220,7 +224,6 @@ def check_answer_correctness(user_answer, sample_answer):
     feedback = response.content if response else "Could not generate feedback."
 
     return feedback
-
 
 # Function to generate a similar question using RAG approach
 def generate_similar_question_with_rag():
@@ -394,7 +397,9 @@ def display_writing1_content():
 
         # Check correctness using LLM if a sample answer is available
         if st.session_state.random_task and st.session_state.random_task.get('sample_answer'):
-            feedback = check_answer_correctness(user_answer, st.session_state.random_task['sample_answer'])
+            question = st.session_state.random_task['text']  # Ensure the question is included
+            sample_answer = st.session_state.random_task['sample_answer']
+            feedback = check_answer_correctness(question, user_answer, sample_answer)  # Pass all three arguments
             st.write("Answer Correctness Feedback:")
             st.write(feedback)
         else:
