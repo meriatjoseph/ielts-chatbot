@@ -208,11 +208,11 @@ def check_answer_correctness(question, user_answer, sample_answer):
     # Create messages using SystemMessage and HumanMessage
     messages = [
         SystemMessage(content="You are an expert in evaluating IELTS writing tasks."),
-        HumanMessage(content=f"Evaluate the following user's answer for an IELTS writing task based on the provided question and sample answer. "
-                             f"Provide detailed feedback on the coherence, structure, grammar, vocabulary usage, relevance to the task, and overall quality. "
-                             f"Highlight the strengths and areas for improvement in the user's answer.\n\n"
+        HumanMessage(content=f"Evaluate the following user's answer for an IELTS writing task based on the provided question and the ideal qualities of a high-quality response. "
+                             f"Assess the user's answer for coherence, structure, grammar, vocabulary usage, relevance to the task, and overall quality. "
+                             f"Provide feedback highlighting the strengths and areas for improvement in the user's answer.\n\n"
                              f"Question:\n{question}\n\n"
-                             f"Sample Answer:\n{sample_answer}\n\n"
+                             f"Ideal qualities for the response include proper grammar, clear structure, and relevance to the question.\n\n"
                              f"User's Answer:\n{user_answer}\n\n"
                              f"Feedback:")
     ]
