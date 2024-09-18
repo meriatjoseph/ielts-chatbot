@@ -61,7 +61,7 @@ def extract_writing_tasks_from_web(urls):
 # Function to generate IELTS Writing Test URLs with leading zeros
 def generate_ielts_test_urls():
     base_url = "https://ieltstrainingonline.com/ielts-writing-practice-test-"
-    urls = [f"{base_url}{i:02d}/" for i in range(1, 100)]  
+    urls = [f"{base_url}{i:02d}/" for i in range(1, 5)]  
     return urls
 
 # Generate the test URLs
