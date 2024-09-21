@@ -180,19 +180,19 @@ def display_writing1_content():
         st.write("Band Score:")
         st.write(band_score)
         
-        if 'matches' in grammar_result:
-            matches = grammar_result['matches']
-            if matches:
-                st.write("Here are some suggestions to improve your answer:")
-                for match in matches:
-                    st.write(f"Error: {match['context']['text']}")
-                    st.write(f"Suggestion: {', '.join([r['value'] for r in match['replacements']])}")
-                    st.write(f"Message: {match['message']}")
-                    st.write("---------------")
-            else:
-                st.write("No grammar issues found.")
-        else:
-            st.write("Unexpected grammar check result format.")
+        # if 'matches' in grammar_result:
+        #     matches = grammar_result['matches']
+        #     if matches:
+        #         st.write("Here are some suggestions to improve your answer:")
+        #         for match in matches:
+        #             st.write(f"Error: {match['context']['text']}")
+        #             st.write(f"Suggestion: {', '.join([r['value'] for r in match['replacements']])}")
+        #             st.write(f"Message: {match['message']}")
+        #             st.write("---------------")
+        #     else:
+        #         st.write("No grammar issues found.")
+        # else:
+        #     st.write("Unexpected grammar check result format.")
 
         if st.session_state.random_task and st.session_state.random_task.get('sample_answer'):
             question = st.session_state.random_task['text']

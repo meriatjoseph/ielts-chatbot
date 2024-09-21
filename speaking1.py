@@ -2,20 +2,21 @@ import os
 import random
 from dotenv import load_dotenv
 import streamlit as st
-from langchain_openai import ChatOpenAI
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_groq import ChatGroq
+from langchain_community.embeddings import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
+from langchain_community.document_loaders import PyPDFDirectoryLoader
 import requests
 import time
 
 # Load environment variables
 load_dotenv()
-open_api_key = os.getenv('OPEN_API_KEY')
+groq_api_key = os.getenv('GROQ_API_KEY')
 
 # Initialize LLM
-llm = ChatOpenAI(model="gpt-4", api_key=open_api_key)
+llm = ChatGroq(model="llama3-8b-8192", groq_api_key=groq_api_key)
 
 # Define the prompt template for generating IELTS writing tasks
 from langchain.prompts import PromptTemplate
@@ -33,7 +34,7 @@ prompt = PromptTemplate.from_template(
 
 # Function to create vector embeddings and load documents
 def create_vector_embedding():
-    st.session_state.embeddings = OpenAIEmbeddings()
+    st.session_state.embeddings = OllamaEmbeddings()
     st.session_state.loader = PyPDFDirectoryLoader("task2_writing")  # Data ingestion
     st.session_state.docs = st.session_state.loader.load()  # Document loading
     st.session_state.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
