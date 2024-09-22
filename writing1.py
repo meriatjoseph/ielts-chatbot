@@ -1,16 +1,13 @@
 import os
-import io
-import fitz  # PyMuPDF
 import random
+import requests
 import bs4
 from dotenv import load_dotenv
 import streamlit as st
 from langchain_openai import ChatOpenAI
-from langchain.embeddings import OpenAIEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema import HumanMessage, SystemMessage
-import requests
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 # Load environment variables
 load_dotenv()
@@ -19,29 +16,22 @@ open_api_key = os.getenv('OPEN_API_KEY')
 # Initialize LLM
 llm = ChatOpenAI(model="gpt-4", api_key=open_api_key)
 
-# Define the prompt template for generating similar IELTS writing tasks
-prompt_template = ChatPromptTemplate.from_template(
-    """Based on the content provided, generate a similar IELTS Writing Task 1 prompt.
-    Use the context below to create a new, unique task.
-    
-    <context>
-    {context}
-    </context>
+# FastAPI instance
+api_app = FastAPI()
 
-    Task: Generate a similar IELTS Writing Task 1 prompt."""
-)
+# Pydantic model for request validation
+class WritingTaskRequest(BaseModel):
+    user_answer: str
 
 # Function to extract IELTS Writing Task 1 questions, images, and sample answers from web documents
 def extract_writing_tasks_from_web(urls):
     tasks = []
     for url in urls:
-        print(f"Processing URL: {url}")
         try:
             response = requests.get(url)
             response.raise_for_status()
             soup = bs4.BeautifulSoup(response.text, "html.parser")
             elements = soup.find_all("div", class_="et_pb_section et_pb_section_0 et_section_regular")
-            print(f"Number of Task 1 question elements found: {len(elements)}")
             for element in elements:
                 task = element.get_text(strip=True)
                 if task:
@@ -61,7 +51,7 @@ def extract_writing_tasks_from_web(urls):
 # Function to generate IELTS Writing Test URLs with leading zeros
 def generate_ielts_test_urls():
     base_url = "https://ieltstrainingonline.com/ielts-writing-practice-test-"
-    urls = [f"{base_url}{i:02d}/" for i in range(1, 5)]  
+    urls = [f"{base_url}{i:02d}/" for i in range(1, 10)]  
     return urls
 
 # Generate the test URLs
@@ -69,6 +59,13 @@ ielts_test_urls = generate_ielts_test_urls()
 
 # Extract writing tasks from web documents
 writing_tasks = extract_writing_tasks_from_web(ielts_test_urls)
+
+# Function to generate a random task from extracted tasks
+def generate_random_task():
+    if writing_tasks:
+        return random.choice(writing_tasks)
+    else:
+        raise HTTPException(status_code=404, detail="No writing tasks available.")
 
 # Function to check the correctness of the user's answer using LLM
 def check_answer_correctness(question, user_answer, sample_answer):
@@ -135,6 +132,7 @@ def apply_corrections(text, response_json):
 
     return corrected_text, band_score
 
+# Streamlit UI Function to display content
 def display_writing1_content():
     st.title("IELTS Writing Task Generator")
 
@@ -180,20 +178,6 @@ def display_writing1_content():
         st.write("Band Score:")
         st.write(band_score)
         
-        # if 'matches' in grammar_result:
-        #     matches = grammar_result['matches']
-        #     if matches:
-        #         st.write("Here are some suggestions to improve your answer:")
-        #         for match in matches:
-        #             st.write(f"Error: {match['context']['text']}")
-        #             st.write(f"Suggestion: {', '.join([r['value'] for r in match['replacements']])}")
-        #             st.write(f"Message: {match['message']}")
-        #             st.write("---------------")
-        #     else:
-        #         st.write("No grammar issues found.")
-        # else:
-        #     st.write("Unexpected grammar check result format.")
-
         if st.session_state.random_task and st.session_state.random_task.get('sample_answer'):
             question = st.session_state.random_task['text']
             sample_answer = st.session_state.random_task['sample_answer']
@@ -204,4 +188,9 @@ def display_writing1_content():
             st.write("No sample answer available to check correctness.")
 
 if __name__ == "__main__":
-    display_writing1_content()
+    # Run as a Streamlit app
+    # display_writing1_content()
+
+    # Run as a FastAPI app
+    import uvicorn
+    uvicorn.run(api_app, host="0.0.0.0", port=8000)
