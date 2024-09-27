@@ -20,6 +20,11 @@ if option == "Practice Session":
     if practice_option == "Writing":
         st.sidebar.subheader("Writing tasks")
         writing_option = st.sidebar.selectbox("Choose a section:", ["Writing 1", "Writing 2"])
+    
+    # Subsections under "reading"
+    if practice_option == "Reading":
+        st.sidebar.subheader("Reading tasks")
+        writing_option = st.sidebar.selectbox("Choose a section:", ["Reading 1", "Reading 2","Reading 3"])
 
         # Clear the session state for writing tasks when switching between "Writing 1" and "Writing 2"
         if 'previous_writing_option' not in st.session_state or st.session_state.previous_writing_option != writing_option:
