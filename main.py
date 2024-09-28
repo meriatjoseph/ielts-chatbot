@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
 from writing2 import generate_random_task as generate_writing2_task, check_answer_correctness as check_answer_correctness2
-from speaking1 import get_random_topic_with_questions, generate_feedback_for_answer  # Import functions from speaking1
 import random
 
 app = FastAPI()
@@ -92,26 +91,5 @@ def evaluate_answer_writing2(request: WritingTaskRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/speaking1/generate_task/", response_model=SpeakingTaskResponse)
-def generate_task_speaking1():
-    try:
-        topic, questions = get_random_topic_with_questions()
-        question = random.choice(questions)
-        return {
-            "topic": topic,
-            "question": question
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/speaking1/evaluate_answer/")
-def evaluate_answer_speaking1(request: SpeakingTaskRequest):
-    try:
-        topic, questions = get_random_topic_with_questions()
-        question = random.choice(questions)
-        feedback = generate_feedback_for_answer(topic, question, request.user_answer)
-        return {"feedback": feedback}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 # Run the app with: uvicorn main:app --reload
