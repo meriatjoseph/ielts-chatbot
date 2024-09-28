@@ -7,6 +7,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain.chains import RetrievalQA
+# from langchain_community.embeddings import OpenAIEmbeddings
+# from langchain_community.vectorstores import FAISS
+# from langchain_community.document_loaders import PyPDFLoader
+from fastapi import FastAPI, HTTPException
+api_app = FastAPI()
 
 # Function to load and parse the PDF for Speaking Part 2
 def create_vector_embedding_for_speaking_part2():
@@ -89,3 +94,6 @@ if st.button("Generate Random Speaking Part 2 Question"):
 # Display original question only
 if 'original_question' in st.session_state:
     st.write(f"**Question:** {st.session_state.original_question}")
+
+    import uvicorn
+    uvicorn.run(api_app, host="0.0.0.0", port=8000)

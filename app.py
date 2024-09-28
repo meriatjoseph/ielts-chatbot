@@ -42,6 +42,12 @@ if option == "Practice Session":
             display_writing1_content()  # Call the function to display content from writing1.py
         elif writing_option == "Writing 2":
             display_writing2_content()  # Call the function to display content from writing2.py
+    # Display content for "Writing" and "Writing 1" or "Writing 2"
+    if practice_option == "Writing":
+        if writing_option == "Writing 1":
+            display_writing1_content()  # Call the function to display content from writing1.py
+        elif writing_option == "Writing 2":
+            display_writing2_content()  # Call the function to display content from writing2.py
 
 elif option == "Mock Tests":
     st.title("Mock Tests")

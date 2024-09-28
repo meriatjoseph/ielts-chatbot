@@ -6,7 +6,11 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.document_loaders import PyPDFLoader
 from langchain.chains import RetrievalQA
-
+# from langchain_community.embeddings import OpenAIEmbeddings
+# from langchain_community.vectorstores import FAISS
+# from langchain_community.document_loaders import PyPDFLoader
+from fastapi import FastAPI, HTTPException
+api_app = FastAPI()
 # Function to load and parse the provided PDF to extract topics and questions
 def extract_topics_and_questions():
     st.write("Extracting topics and questions from the PDF...")
@@ -203,3 +207,7 @@ if "all_topics_with_questions" in st.session_state:
             st.write("No questions found for the selected topic.")
 else:
     st.write("No topics found.")
+
+
+    import uvicorn
+    uvicorn.run(api_app, host="0.0.0.0", port=8000)
