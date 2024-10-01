@@ -13,7 +13,7 @@ def extract_topics_and_questions():
 
     if "topics_with_questions" not in st.session_state:
         # Load the provided PDF using PyPDFLoader
-        loader = PyPDFLoader("speaking1_pdf/Speaking Part 1 Questions.pdf")
+        loader = PyPDFLoader("speaking1_pdf/Speaking_Part_1_Questions.pdf")
 
         # Load the documents and store them in session state
         st.session_state.docs = loader.load()

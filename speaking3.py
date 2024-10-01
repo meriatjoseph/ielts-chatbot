@@ -11,7 +11,7 @@ api_app = FastAPI()
 
 def extract_topics_and_questions():
     if "topics_with_questions" not in st.session_state:
-        loader = PyPDFLoader("speaking3_pdf/Part 3 Speaking.pdf")
+        loader = PyPDFLoader("speaking3_pdf/Part_3_Speaking.pdf")
         st.session_state.docs = loader.load()
         st.session_state.final_documents = st.session_state.docs
         full_text = "".join([doc.page_content for doc in st.session_state.docs])
