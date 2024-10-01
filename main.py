@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
 from writing2 import generate_random_task as generate_writing2_task, check_answer_correctness as check_answer_correctness2
-from speaking1 import extract_topics_and_questions as extract_speaking1_topics, generate_questions_using_rag as generate_speaking1_questions
+# from speaking1 import extract_topics_and_questions as extract_speaking1_topics, generate_questions_using_rag as generate_speaking1_questions
 from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
 # from speaking3 import extract_topics_and_questions as extract_speaking3_topics, generate_questions_using_rag as generate_speaking3_questions
 import random
@@ -103,14 +103,14 @@ def evaluate_answer_writing2(request: WritingTaskRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/speaking1/generate_question/")
-def generate_speaking1_task():
-    try:
-        extract_speaking1_topics()
-        question = generate_speaking1_questions(random.choice(list(st.session_state.all_topics_with_questions.keys())))
-        return {"question": question}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/speaking1/generate_question/")
+# def generate_speaking1_task():
+#     try:
+#         extract_speaking1_topics()
+#         question = generate_speaking1_questions(random.choice(list(st.session_state.all_topics_with_questions.keys())))
+#         return {"question": question}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/speaking2/generate_question/")
 def generate_speaking2_task():
@@ -143,3 +143,7 @@ if __name__ == "__main__":
         loop.create_task(server.serve())
     else:
         uvicorn.run(api_app, host="0.0.0.0", port=8000)
+        
+        
+        
+# Run the app with: uvicorn main:app --reload
