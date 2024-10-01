@@ -11,5 +11,6 @@ faiss-cpu
 pypdf2
 pypdf
 bs4
+pydantic
 
 
