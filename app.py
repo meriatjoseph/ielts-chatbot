@@ -1,6 +1,7 @@
 import streamlit as st  # Import Streamlit
 from writing1 import display_writing1_content  # Import the function to display content from writing1.py
 from writing2 import display_writing2_content  # Import the function to display content from writing2.py
+from vocabulary_grammar import display_vocabulary_grammar  # Import the vocabulary and grammar section
 
 # Set the page configurations - This must be the first Streamlit command
 st.set_page_config(page_title="IELTS Practice", layout="wide")
@@ -11,25 +12,28 @@ st.sidebar.title("Features")
 # Main options in the sidebar
 option = st.sidebar.radio("Select an option:", ["Practice Session", "Mock Tests"])
 
+# Initialize writing_option as None
+writing_option = None
+
 # Subsections under "Practice Session"
 if option == "Practice Session":
     st.sidebar.subheader("Practice Sections")
-    practice_option = st.sidebar.selectbox("Choose a section:", ["Reading", "Listening", "Writing", "Speaking"])
+    practice_option = st.sidebar.selectbox("Choose a section:", ["Reading", "Listening", "Writing", "Speaking", "Vocabulary & Grammar"])
 
     # Subsections under "Writing"
     if practice_option == "Writing":
         st.sidebar.subheader("Writing tasks")
         writing_option = st.sidebar.selectbox("Choose a section:", ["Writing 1", "Writing 2"])
-    
-    # Subsections under "reading"
+
+    # Subsections under "Reading"
     if practice_option == "Reading":
         st.sidebar.subheader("Reading tasks")
-        writing_option = st.sidebar.selectbox("Choose a section:", ["Reading 1", "Reading 2","Reading 3"])
+        reading_option = st.sidebar.selectbox("Choose a section:", ["Reading 1", "Reading 2", "Reading 3"])
 
-        # Clear the session state for writing tasks when switching between "Writing 1" and "Writing 2"
-        if 'previous_writing_option' not in st.session_state or st.session_state.previous_writing_option != writing_option:
-            st.session_state.clear()  # Clear session state to reset variables
-            st.session_state.previous_writing_option = writing_option
+    # Clear the session state for writing tasks when switching between "Writing 1" and "Writing 2"
+    if 'previous_writing_option' not in st.session_state or st.session_state.previous_writing_option != writing_option:
+        st.session_state.clear()  # Clear session state to reset variables
+        st.session_state.previous_writing_option = writing_option
 
 # Display content based on the selection
 if option == "Practice Session":
@@ -42,12 +46,10 @@ if option == "Practice Session":
             display_writing1_content()  # Call the function to display content from writing1.py
         elif writing_option == "Writing 2":
             display_writing2_content()  # Call the function to display content from writing2.py
-    # Display content for "Writing" and "Writing 1" or "Writing 2"
-    if practice_option == "Writing":
-        if writing_option == "Writing 1":
-            display_writing1_content()  # Call the function to display content from writing1.py
-        elif writing_option == "Writing 2":
-            display_writing2_content()  # Call the function to display content from writing2.py
+
+    # Display content for Vocabulary & Grammar
+    if practice_option == "Vocabulary & Grammar":
+        display_vocabulary_grammar()  # Call the function to display vocabulary and grammar content
 
 elif option == "Mock Tests":
     st.title("Mock Tests")
