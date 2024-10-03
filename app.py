@@ -1,7 +1,8 @@
 import streamlit as st  # Import Streamlit
 from writing1 import display_writing1_content  # Import the function to display content from writing1.py
 from writing2 import display_writing2_content  # Import the function to display content from writing2.py
-from vocabulary_grammar import display_vocabulary_grammar  # Import the vocabulary and grammar section
+from vocabulary import display_vocabulary  # Import the vocabulary section
+from grammar import display_grammar  # Import the grammar section
 
 # Set the page configurations - This must be the first Streamlit command
 st.set_page_config(page_title="IELTS Practice", layout="wide")
@@ -18,7 +19,7 @@ writing_option = None
 # Subsections under "Practice Session"
 if option == "Practice Session":
     st.sidebar.subheader("Practice Sections")
-    practice_option = st.sidebar.selectbox("Choose a section:", ["Reading", "Listening", "Writing", "Speaking", "Vocabulary & Grammar"])
+    practice_option = st.sidebar.selectbox("Choose a section:", ["Reading", "Listening", "Writing", "Speaking", "Vocabulary", "Grammar"])
 
     # Subsections under "Writing"
     if practice_option == "Writing":
@@ -47,9 +48,13 @@ if option == "Practice Session":
         elif writing_option == "Writing 2":
             display_writing2_content()  # Call the function to display content from writing2.py
 
-    # Display content for Vocabulary & Grammar
-    if practice_option == "Vocabulary & Grammar":
-        display_vocabulary_grammar()  # Call the function to display vocabulary and grammar content
+    # Display content for Vocabulary
+    if practice_option == "Vocabulary":
+        display_vocabulary()  # Call the function to display vocabulary content
+
+    # Display content for Grammar
+    if practice_option == "Grammar":
+        display_grammar()  # Call the function to display grammar content
 
 elif option == "Mock Tests":
     st.title("Mock Tests")

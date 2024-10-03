@@ -1,22 +1,18 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
 from writing2 import generate_random_task as generate_writing2_task, check_answer_correctness as check_answer_correctness2
-# from speaking1 import extract_topics_and_questions as extract_speaking1_topics, generate_questions_using_rag as generate_speaking1_questions
 from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
-# from speaking3 import extract_topics_and_questions as extract_speaking3_topics, generate_questions_using_rag as generate_speaking3_questions
+from vocabulary_grammar import generate_vocabulary_task as generate_vocabulary_task,generate_grammar_task as generate_grammar_task
 import random
 import uvicorn
 import asyncio
-from fastapi import FastAPI
 import streamlit as st
 
-
+# FastAPI app instance
 api_app = FastAPI()
-
 app = FastAPI()
-
 # Pydantic models for request bodies
 class WritingTaskRequest(BaseModel):
     user_answer: str
@@ -24,15 +20,15 @@ class WritingTaskRequest(BaseModel):
 class WritingTaskResponse(BaseModel):
     question: str
     sample_answer: str
-    image_url: str = None  # Add image_url as an optional field
+    image_url: Optional[str] = None  # Add image_url as an optional field
 
-class SpeakingTaskRequest(BaseModel):
-    user_answer: str
+class VocabularyTaskResponse(BaseModel):
+    vocabulary_task: str
+    correct_answers: str
 
-class SpeakingTaskResponse(BaseModel):
-    topic: str
-    question: str
-
+class GrammarTaskResponse(BaseModel):
+    grammar_task: str
+    correct_answers: str
 
 @app.get("/")
 def read_root():
@@ -103,14 +99,33 @@ def evaluate_answer_writing2(request: WritingTaskRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# @app.get("/speaking1/generate_question/")
-# def generate_speaking1_task():
-#     try:
-#         extract_speaking1_topics()
-#         question = generate_speaking1_questions(random.choice(list(st.session_state.all_topics_with_questions.keys())))
-#         return {"question": question}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+@app.get("/vocabulary/generate_task/", response_model=VocabularyTaskResponse)
+def generate_vocabulary_tasks():
+    try:
+        # Call your existing vocabulary task generation function
+        task = generate_vocabulary_task()  # Ensure this function returns a dict with the task and answers
+        vocabulary_task = task['vocabulary_task']  # Modify according to your function's response structure
+        correct_answers = task['correct_answers']  # Modify according to your function's response structure
+        return {
+            "vocabulary_task": vocabulary_task,
+            "correct_answers": correct_answers
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/generate_task/", response_model=GrammarTaskResponse)
+def generate_grammar_tasks():
+    try:
+        # Call your existing grammar task generation function
+        task = generate_grammar_task()  # Ensure this function returns a dict with the task and answers
+        grammar_task = task['grammar_task']  # Modify according to your function's response structure
+        correct_answers = task['correct_answers']  # Modify according to your function's response structure
+        return {
+            "grammar_task": grammar_task,
+            "correct_answers": correct_answers
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/speaking2/generate_question/")
 def generate_speaking2_task():
@@ -121,20 +136,6 @@ def generate_speaking2_task():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# @app.get("/speaking3/generate_question/")
-# def generate_speaking3_task():
-#     try:
-#         extract_speaking3_topics()
-#         question = generate_speaking3_questions(random.choice(list(st.session_state.all_topics_with_questions.keys())))
-#         return {"question": question}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-# Run the app with: uvicorn main:app --reload
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     if loop.is_running():
@@ -143,7 +144,6 @@ if __name__ == "__main__":
         loop.create_task(server.serve())
     else:
         uvicorn.run(api_app, host="0.0.0.0", port=8000)
-        
-        
-        
+
+
 # Run the app with: uvicorn main:app --reload
