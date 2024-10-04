@@ -5,6 +5,7 @@ import google.generativeai as genai
 import os
 import time
 from google.api_core.exceptions import ResourceExhausted  # Import the exception
+import json
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -25,13 +26,38 @@ def retry_api_call(api_function, retries=3, delay=60):
     st.error("API quota exceeded. Please try again later.")
     return "Quota exceeded."
 
+import re
+
 def generate_grammar_task():
-    """Generate a grammar practice task for IELTS General along with correct answers."""
-    return retry_api_call(
+    """Generate a grammar practice task for IELTS General along with correct answers in JSON format."""
+    result = retry_api_call(
         lambda: client.invoke(
-            "Generate a grammar task focused on IELTS General, including common grammar topics such as tenses, articles, and conditionals. Also, provide the correct answers for the task."
+            "Generate a grammar task focused on IELTS General, including common grammar topics such as tenses, articles, and conditionals. "
+            "Provide the gaps (questions) and answers with explanations in a structured JSON format."
         ).content
     )
+
+    # Print the raw result for debugging
+    st.write("Raw result from API:", result)
+
+    # Clean up the result to ensure valid JSON
+    cleaned_result = re.sub(r'```json|```', '', result).strip()  # Remove ```json and any other unwanted characters
+
+    # Print cleaned result
+    st.write("Cleaned result:", cleaned_result)
+
+    # Try to parse the cleaned result as JSON to ensure it's in dictionary format
+    try:
+        parsed_result = json.loads(cleaned_result)  # Ensure the result is parsed as a JSON dictionary
+        if not isinstance(parsed_result, dict):
+            st.error("The parsed result is not a dictionary.")
+            raise ValueError("Parsed result is not a dictionary.")
+        return parsed_result
+    except json.JSONDecodeError as e:
+        st.error(f"Error parsing JSON: {e}")
+        raise ValueError("Unable to parse the response as JSON.") from e
+
+
 
 def generate_feedback(task_text):
     """Provide feedback for a grammar task response."""
@@ -57,19 +83,47 @@ def display_grammar():
     if 'grammar_task' not in st.session_state:
         st.session_state.grammar_task = generate_grammar_task()
 
-    # Process the grammar task and extract the answers if present
-    if "Correct Answers:" in st.session_state.grammar_task:
-        grammar_task, grammar_answers = st.session_state.grammar_task.split("Correct Answers:")
-    else:
-        grammar_task = st.session_state.grammar_task
-        grammar_answers = "Correct answers not provided."
+    # Display raw response to debug JSON structure issues
+    st.subheader("Raw API Response (for debugging)")
+    st.write(st.session_state.grammar_task)  # This should now display the parsed dictionary
 
-    st.subheader("Grammar Task")
-    st.write(grammar_task)
+    # Try parsing the response as JSON (it should already be a dictionary now)
+    try:
+        grammar_data = st.session_state.grammar_task
+        
+        # Check if it's really a dictionary
+        if not isinstance(grammar_data, dict):
+            st.error("The grammar task is not in dictionary format. Please check.")
+            return
+        
+        # Extract questions, answers, and gaps
+        gaps = {str(q['id']): q['options'] for q in grammar_data['questions']}
+        answers = {str(q['id']): [q['answer'], q['explanation']] for q in grammar_data['questions']}
+        text = " ".join([q['text'] for q in grammar_data['questions']])  # Combine all questions into a single string
 
-    # Display correct answers in green color
-    st.subheader("Correct Answers")
-    st.markdown(f"<span style='color:green;'>{grammar_answers.strip()}</span>", unsafe_allow_html=True)
+        # Display the grammar task text
+        st.subheader("Grammar Task Text")
+        st.write(text)
+
+        # Display the grammar task with gaps
+        st.subheader("Grammar Questions and Options")
+        for gap_num, options in gaps.items():
+            st.write(f"Question {gap_num}:")
+            for i, option in enumerate(options):
+                st.write(f"{chr(65+i)}. {option}")
+
+        # Display correct answers in green color
+        st.subheader("Correct Answers")
+        for gap_num, answer_data in answers.items():
+            st.markdown(f"**Question {gap_num}:** Correct answer is **{answer_data[0]}**. Explanation: {answer_data[1]}")
+
+        # Display the generated JSON data
+        st.subheader("Generated JSON Data")
+        st.json(grammar_data)
+
+    except KeyError:
+        st.error("Error accessing the grammar task data. Please try again.")
+        return
 
     # Input for grammar task response
     grammar_task_text = st.text_area("Enter your response to the grammar task here:")
@@ -90,3 +144,7 @@ def display_grammar():
     if st.button("Next Grammar Task"):
         st.session_state.grammar_task = generate_grammar_task()
         st.rerun()  # Refresh the page for the new grammar task
+
+# Call display_grammar to render the UI
+if __name__ == "__main__":
+    display_grammar()

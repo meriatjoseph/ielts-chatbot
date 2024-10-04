@@ -26,9 +26,14 @@ class VocabularyTaskResponse(BaseModel):
     vocabulary_task: str
     correct_answers: str
 
-class GrammarTaskResponse(BaseModel):
-    grammar_task: str
-    correct_answers: str
+# class GrammarTaskResponse(BaseModel):
+#     grammar_task: str
+#     correct_answers: str
+
+class GrammarTaskJsonResponse(BaseModel):
+    gaps: dict
+    answers: dict
+    text: str
 
 @app.get("/")
 def read_root():
@@ -113,16 +118,25 @@ def generate_vocabulary_tasks():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/grammar/generate_task/", response_model=GrammarTaskResponse)
-def generate_grammar_tasks():
+@app.get("/grammar/generate_task_with_json", response_model=GrammarTaskJsonResponse)
+def generate_grammar_task_with_json():
     try:
         # Call your existing grammar task generation function
-        task = generate_grammar_task()  # Ensure this function returns a dict with the task and answers
-        grammar_task = task['grammar_task']  # Modify according to your function's response structure
-        correct_answers = task['correct_answers']  # Modify according to your function's response structure
+        task = generate_grammar_task()  # This should already return a dictionary
+
+        # Ensure task is properly formatted as JSON and extract relevant data
+        if not isinstance(task, dict):
+            raise HTTPException(status_code=500, detail="The task is not a valid dictionary.")
+        
+        # Extract gaps, answers, and text from the questions
+        gaps = {str(q['id']): q['options'] for q in task['questions']}
+        answers = {str(q['id']): [q['answer'], q['explanation']] for q in task['questions']}
+        text = " ".join([q['text'] for q in task['questions']])  # Combine all the questions' text
+
         return {
-            "grammar_task": grammar_task,
-            "correct_answers": correct_answers
+            "gaps": gaps,
+            "answers": answers,
+            "text": text
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
