@@ -1,3 +1,5 @@
+import json
+import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
@@ -5,6 +7,7 @@ from writing1 import generate_random_task as generate_writing1_task, check_gramm
 from writing2 import generate_random_task as generate_writing2_task, check_answer_correctness as check_answer_correctness2
 from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
 from vocabulary_grammar import generate_vocabulary_task as generate_vocabulary_task,generate_grammar_task as generate_grammar_task
+from grammar import generate_grammar_task_from_grammer as generate_grammar_task_from_grammer
 import random
 import uvicorn
 import asyncio
@@ -25,10 +28,6 @@ class WritingTaskResponse(BaseModel):
 class VocabularyTaskResponse(BaseModel):
     vocabulary_task: str
     correct_answers: str
-
-# class GrammarTaskResponse(BaseModel):
-#     grammar_task: str
-#     correct_answers: str
 
 class GrammarTaskJsonResponse(BaseModel):
     gaps: dict
@@ -107,7 +106,6 @@ def evaluate_answer_writing2(request: WritingTaskRequest):
 @app.get("/vocabulary/generate_task/", response_model=VocabularyTaskResponse)
 def generate_vocabulary_tasks():
     try:
-        # Call your existing vocabulary task generation function
         task = generate_vocabulary_task()  # Ensure this function returns a dict with the task and answers
         vocabulary_task = task['vocabulary_task']  # Modify according to your function's response structure
         correct_answers = task['correct_answers']  # Modify according to your function's response structure
@@ -117,29 +115,25 @@ def generate_vocabulary_tasks():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/grammar/generate_task_with_json", response_model=GrammarTaskJsonResponse)
+    
+@app.get("/grammar/generate_task_with_json")
 def generate_grammar_task_with_json():
     try:
         # Call your existing grammar task generation function
-        task = generate_grammar_task()  # This should already return a dictionary
+        task_result = generate_grammar_task_from_grammer()
 
-        # Ensure task is properly formatted as JSON and extract relevant data
-        if not isinstance(task, dict):
-            raise HTTPException(status_code=500, detail="The task is not a valid dictionary.")
-        
-        # Extract gaps, answers, and text from the questions
-        gaps = {str(q['id']): q['options'] for q in task['questions']}
-        answers = {str(q['id']): [q['answer'], q['explanation']] for q in task['questions']}
-        text = " ".join([q['text'] for q in task['questions']])  # Combine all the questions' text
+        # Log the raw task_result for debugging purposes
+        logging.info("Raw task result: %s", task_result)
 
-        return {
-            "gaps": gaps,
-            "answers": answers,
-            "text": text
-        }
+        # Return the raw task_result as it is
+        return task_result
+
+    except ValueError as ve:
+        logging.error(f"ValueError: {str(ve)}")
+        raise HTTPException(status_code=500, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logging.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @app.get("/speaking2/generate_question/")
 def generate_speaking2_task():
@@ -158,6 +152,3 @@ if __name__ == "__main__":
         loop.create_task(server.serve())
     else:
         uvicorn.run(api_app, host="0.0.0.0", port=8000)
-
-
-# Run the app with: uvicorn main:app --reload

@@ -28,7 +28,7 @@ def retry_api_call(api_function, retries=3, delay=60):
 
 import re
 
-def generate_grammar_task():
+def generate_grammar_task_from_grammer():
     """Generate a grammar practice task for IELTS General along with correct answers in JSON format."""
     result = retry_api_call(
         lambda: client.invoke(
@@ -38,7 +38,7 @@ def generate_grammar_task():
     )
 
     # Print the raw result for debugging
-    st.write("Raw result from API:", result)
+    # st.write("Raw result from API:", result)
 
     # Clean up the result to ensure valid JSON
     cleaned_result = re.sub(r'```json|```', '', result).strip()  # Remove ```json and any other unwanted characters
@@ -49,6 +49,7 @@ def generate_grammar_task():
     # Try to parse the cleaned result as JSON to ensure it's in dictionary format
     try:
         parsed_result = json.loads(cleaned_result)  # Ensure the result is parsed as a JSON dictionary
+        st.write("parsed result",parsed_result)
         if not isinstance(parsed_result, dict):
             st.error("The parsed result is not a dictionary.")
             raise ValueError("Parsed result is not a dictionary.")
