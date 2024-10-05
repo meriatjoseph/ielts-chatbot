@@ -37,19 +37,13 @@ def generate_grammar_task_from_grammer():
         ).content
     )
 
-    # Print the raw result for debugging
-    # st.write("Raw result from API:", result)
-
     # Clean up the result to ensure valid JSON
     cleaned_result = re.sub(r'```json|```', '', result).strip()  # Remove ```json and any other unwanted characters
-
-    # Print cleaned result
-    st.write("Cleaned result:", cleaned_result)
 
     # Try to parse the cleaned result as JSON to ensure it's in dictionary format
     try:
         parsed_result = json.loads(cleaned_result)  # Ensure the result is parsed as a JSON dictionary
-        st.write("parsed result",parsed_result)
+        st.write("parsed result", parsed_result)
         if not isinstance(parsed_result, dict):
             st.error("The parsed result is not a dictionary.")
             raise ValueError("Parsed result is not a dictionary.")
@@ -57,8 +51,6 @@ def generate_grammar_task_from_grammer():
     except json.JSONDecodeError as e:
         st.error(f"Error parsing JSON: {e}")
         raise ValueError("Unable to parse the response as JSON.") from e
-
-
 
 def generate_feedback(task_text):
     """Provide feedback for a grammar task response."""
@@ -82,7 +74,7 @@ def display_grammar():
 
     # Initialize session state for grammar task
     if 'grammar_task' not in st.session_state:
-        st.session_state.grammar_task = generate_grammar_task()
+        st.session_state.grammar_task = generate_grammar_task_from_grammer()
 
     # Display raw response to debug JSON structure issues
     st.subheader("Raw API Response (for debugging)")
@@ -91,36 +83,52 @@ def display_grammar():
     # Try parsing the response as JSON (it should already be a dictionary now)
     try:
         grammar_data = st.session_state.grammar_task
-        
+
         # Check if it's really a dictionary
         if not isinstance(grammar_data, dict):
             st.error("The grammar task is not in dictionary format. Please check.")
             return
-        
-        # Extract questions, answers, and gaps
-        gaps = {str(q['id']): q['options'] for q in grammar_data['questions']}
-        answers = {str(q['id']): [q['answer'], q['explanation']] for q in grammar_data['questions']}
-        text = " ".join([q['text'] for q in grammar_data['questions']])  # Combine all questions into a single string
+
+        # Extract questions, options, answers, and gaps
+        questions_data = []
+        for question in grammar_data['questions']:
+            question_id = str(question['id'])
+            question_text = question['text']
+            options = question['options']
+            answer = question['answer']
+            explanation = question['explanation']
+            
+            # Add to the structured JSON
+            questions_data.append({
+                "id": question_id,
+                "text": question_text,
+                "options": options,
+                "answer": {
+                    "correct_answer": answer,
+                    "explanation": explanation
+                }
+            })
 
         # Display the grammar task text
         st.subheader("Grammar Task Text")
-        st.write(text)
+        task_text = " ".join([q['text'] for q in grammar_data['questions']])
+        st.write(task_text)
 
-        # Display the grammar task with gaps
+        # Display the grammar questions and options
         st.subheader("Grammar Questions and Options")
-        for gap_num, options in gaps.items():
-            st.write(f"Question {gap_num}:")
-            for i, option in enumerate(options):
+        for q in questions_data:
+            st.write(f"Question {q['id']}: {q['text']}")
+            for i, option in enumerate(q['options']):
                 st.write(f"{chr(65+i)}. {option}")
 
-        # Display correct answers in green color
+        # Display correct answers and explanations
         st.subheader("Correct Answers")
-        for gap_num, answer_data in answers.items():
-            st.markdown(f"**Question {gap_num}:** Correct answer is **{answer_data[0]}**. Explanation: {answer_data[1]}")
+        for q in questions_data:
+            st.markdown(f"**Question {q['id']}:** Correct answer is **{q['answer']['correct_answer']}**. Explanation: {q['answer']['explanation']}")
 
-        # Display the generated JSON data
-        st.subheader("Generated JSON Data")
-        st.json(grammar_data)
+        # Display the generated JSON data with options
+        st.subheader("Generated JSON Data with Options")
+        st.json(questions_data)
 
     except KeyError:
         st.error("Error accessing the grammar task data. Please try again.")
@@ -143,7 +151,7 @@ def display_grammar():
 
     # Button for next grammar task
     if st.button("Next Grammar Task"):
-        st.session_state.grammar_task = generate_grammar_task()
+        st.session_state.grammar_task = generate_grammar_task_from_grammer()
         st.rerun()  # Refresh the page for the new grammar task
 
 # Call display_grammar to render the UI
