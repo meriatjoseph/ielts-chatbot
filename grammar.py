@@ -32,7 +32,8 @@ def generate_grammar_task_from_grammer():
     """Generate a grammar practice task for IELTS General along with correct answers in JSON format."""
     result = retry_api_call(
         lambda: client.invoke(
-            "Generate a grammar task focused on IELTS General, including common grammar topics such as tenses, articles, and conditionals. "
+            "Generate a grammar task focused on IELTS General, including common grammar topics such as tenses, articles, and conditionals."
+            "Do not generate a letter-writing task. Focus on sentence-level grammar exercises with gaps to fill in."
             "Provide the gaps (questions) and answers with explanations in a structured JSON format."
         ).content
     )
