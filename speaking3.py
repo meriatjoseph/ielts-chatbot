@@ -33,7 +33,7 @@ def process_topics_and_questions(pdf_content):
     return topics_with_questions
 
 def generate_questions_using_rag(selected_topic):
-    language_model = ChatOpenAI(api_key=os.getenv('OPEN_API_KEY'))
+    language_model = ChatOpenAI(api_key=os.getenv('OPEN_API_KEY'), model="gpt-3.5",temperature=0.0, max_tokens=3000)
     if "topics_with_questions" in st.session_state:
         questions = st.session_state.topics_with_questions[selected_topic]
         retriever = st.session_state.vectors.as_retriever()

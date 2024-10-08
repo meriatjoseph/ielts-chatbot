@@ -55,7 +55,7 @@ def process_topics_and_questions(pdf_content):
 
 # Function to generate similar extra topics and their questions using RAG
 def generate_extra_topics_and_questions_using_rag():
-    language_model = ChatOpenAI(api_key=os.getenv('OPEN_API_KEY'), model="gpt-4")
+    language_model = ChatOpenAI(api_key=os.getenv('OPEN_API_KEY'), model="gpt-3.5",temperature=0.0, max_tokens=3000)
     
     # Generate extra topics based on existing topics
     if "topics_with_questions" in st.session_state:

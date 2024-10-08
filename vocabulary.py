@@ -29,7 +29,7 @@ def generate_vocabulary_task():
     """Generate a vocabulary practice task for IELTS General along with the correct answers."""
     return retry_api_call(
         lambda: client.invoke(
-            "Generate a vocabulary task focused on IELTS General, including words frequently used in IELTS and relevant writing exercises. Also, provide the correct answers for the task."
+            "Generate a vocabulary task focused on IELTS General, including words frequently used in IELTS and relevant writing exercises. Also, provide the correct answers for the task. Please return the result in JSON format."
         ).content
     )
 
@@ -37,7 +37,7 @@ def generate_feedback(task_text):
     """Provide feedback for a vocabulary task response."""
     return retry_api_call(
         lambda: client.invoke(
-            f"Provide detailed feedback on the following IELTS General vocabulary practice task:\n{task_text}"
+            f"Provide detailed feedback on the following IELTS General vocabulary practice task:\n{task_text}. Please return the result in JSON format."
         ).content
     )
 
@@ -45,7 +45,7 @@ def generate_score(task_text):
     """Generate a score based on the vocabulary task response."""
     return retry_api_call(
         lambda: client.invoke(
-            f"Evaluate the quality of the response for the following IELTS General task and provide a score from 1 to 10:\n{task_text}"
+            f"Evaluate the quality of the response for the following IELTS General task and provide a score from 1 to 10. Please return the result in JSON format:\n{task_text}"
         ).content
     )
 

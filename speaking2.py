@@ -54,7 +54,7 @@ def generate_similar_questions_using_rag():
 
         # Initialize RAG
         retriever = st.session_state.vectors.as_retriever()
-        language_model = ChatOpenAI()
+        language_model = ChatOpenAI(api_key=os.getenv('OPEN_API_KEY'), model="gpt-3.5",temperature=0.0, max_tokens=3000)
 
         # Create a prompt for generating similar questions
         prompt = f"Based on the following question, generate similar questions:\n{question}"
