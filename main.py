@@ -6,7 +6,7 @@ from typing import List, Optional
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
 from writing2 import generate_random_task as generate_writing2_task, check_answer_correctness as check_answer_correctness2
 from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
-from vocabulary_grammar import generate_vocabulary_task as generate_vocabulary_task,generate_grammar_task as generate_grammar_task
+# from vocabulary_grammar import generate_vocabulary_task as generate_vocabulary_task,generate_grammar_task as generate_grammar_task
 from grammar import generate_grammar_task_from_grammer as generate_grammar_task_from_grammer
 import random
 import uvicorn
@@ -103,18 +103,18 @@ def evaluate_answer_writing2(request: WritingTaskRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/vocabulary/generate_task/", response_model=VocabularyTaskResponse)
-def generate_vocabulary_tasks():
-    try:
-        task = generate_vocabulary_task()  # Ensure this function returns a dict with the task and answers
-        vocabulary_task = task['vocabulary_task']  # Modify according to your function's response structure
-        correct_answers = task['correct_answers']  # Modify according to your function's response structure
-        return {
-            "vocabulary_task": vocabulary_task,
-            "correct_answers": correct_answers
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/vocabulary/generate_task/", response_model=VocabularyTaskResponse)
+# def generate_vocabulary_tasks():
+#     try:
+#         task = generate_vocabulary_task()  # Ensure this function returns a dict with the task and answers
+#         vocabulary_task = task['vocabulary_task']  # Modify according to your function's response structure
+#         correct_answers = task['correct_answers']  # Modify according to your function's response structure
+#         return {
+#             "vocabulary_task": vocabulary_task,
+#             "correct_answers": correct_answers
+#         }
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/grammar/generate_task_with_json")
 def generate_grammar_task_with_json():
@@ -152,3 +152,6 @@ if __name__ == "__main__":
         loop.create_task(server.serve())
     else:
         uvicorn.run(api_app, host="0.0.0.0", port=8000)
+
+
+# Run the app with: uvicorn main:app --reload  (do not remove this comment)

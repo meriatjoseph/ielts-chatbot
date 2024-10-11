@@ -45,10 +45,48 @@ def generate_grammar_task_from_grammer():
     try:
         parsed_result = json.loads(cleaned_result)  # Ensure the result is parsed as a JSON dictionary
         st.write("parsed result", parsed_result)
-        if not isinstance(parsed_result, dict):
-            st.error("The parsed result is not a dictionary.")
-            raise ValueError("Parsed result is not a dictionary.")
-        return parsed_result
+
+        if not isinstance(parsed_result, dict) or 'questions' not in parsed_result:
+            return {
+                "status": False,
+                "taskName": "Grammar for IELTS General",
+                "instructions": "Complete the following sentences by filling in the gaps with the correct grammatical form. Pay close attention to tenses, articles, and conditional structures.",
+                "questions": []
+            }
+
+        # Extract questions, answers, and explanations
+        questions_data = []
+        for idx, question in enumerate(parsed_result.get('questions', [])):
+            question_id = str(idx + 1)
+            sentence = question.get('text', "")
+            answer = question.get('answer', "")
+            explanation = question.get('explanation', "")
+
+            # Check if any field is empty, return status False if so
+            if not sentence or not answer or not explanation:
+                return {
+                    "status": False,
+                    "taskName": "Grammar for IELTS General",
+                    "instructions": "Complete the following sentences by filling in the gaps with the correct grammatical form. Pay close attention to tenses, articles, and conditional structures.",
+                    "questions": []
+                }
+
+            # Add to the structured JSON
+            questions_data.append({
+                "id": question_id,
+                "sentence": sentence,
+                "answer": answer,
+                "explanation": explanation
+            })
+
+        # Return the formatted JSON response
+        return {
+            "status": True,
+            "taskName": "Grammar for IELTS General",
+            "instructions": "Complete the following sentences by filling in the gaps with the correct grammatical form. Pay close attention to tenses, articles, and conditional structures.",
+            "questions": questions_data
+        }
+
     except json.JSONDecodeError as e:
         st.error(f"Error parsing JSON: {e}")
         raise ValueError("Unable to parse the response as JSON.") from e
@@ -90,46 +128,24 @@ def display_grammar():
             st.error("The grammar task is not in dictionary format. Please check.")
             return
 
-        # Extract questions, options, answers, and gaps
-        questions_data = []
-        for question in grammar_data['questions']:
-            question_id = str(question['id'])
-            question_text = question['text']
-            options = question['options']
-            answer = question['answer']
-            explanation = question['explanation']
-            
-            # Add to the structured JSON
-            questions_data.append({
-                "id": question_id,
-                "text": question_text,
-                "options": options,
-                "answer": {
-                    "correct_answer": answer,
-                    "explanation": explanation
-                }
-            })
-
         # Display the grammar task text
         st.subheader("Grammar Task Text")
-        task_text = " ".join([q['text'] for q in grammar_data['questions']])
+        task_text = " ".join([q['sentence'] for q in grammar_data['questions']])
         st.write(task_text)
 
         # Display the grammar questions and options
-        st.subheader("Grammar Questions and Options")
-        for q in questions_data:
-            st.write(f"Question {q['id']}: {q['text']}")
-            for i, option in enumerate(q['options']):
-                st.write(f"{chr(65+i)}. {option}")
+        st.subheader("Grammar Questions")
+        for q in grammar_data['questions']:
+            st.write(f"Question {q['id']}: {q['sentence']}")
 
         # Display correct answers and explanations
         st.subheader("Correct Answers")
-        for q in questions_data:
-            st.markdown(f"**Question {q['id']}:** Correct answer is **{q['answer']['correct_answer']}**. Explanation: {q['answer']['explanation']}")
+        for q in grammar_data['questions']:
+            st.markdown(f"**Question {q['id']}:** Correct answer is **{q['answer']}**. Explanation: {q['explanation']}")
 
         # Display the generated JSON data with options
         st.subheader("Generated JSON Data with Options")
-        st.json(questions_data)
+        st.json(grammar_data)
 
     except KeyError:
         st.error("Error accessing the grammar task data. Please try again.")
@@ -157,4 +173,4 @@ def display_grammar():
 
 # Call display_grammar to render the UI
 if __name__ == "__main__":
-    display_grammar()
+    display_grammar()  
