@@ -1,4 +1,5 @@
 import streamlit as st  # Import Streamlit
+from reading1 import display_reading1_content
 from writing1 import display_writing1_content  # Import the function to display content from writing1.py
 from writing2 import display_writing2_content  # Import the function to display content from writing2.py
 from vocabulary import display_vocabulary  # Import the vocabulary section
@@ -47,7 +48,10 @@ if option == "Practice Session":
             display_writing1_content()  # Call the function to display content from writing1.py
         elif writing_option == "Writing 2":
             display_writing2_content()  # Call the function to display content from writing2.py
-
+    #Display content for reading
+    if practice_option == "Reading":
+        if(reading_option == "Reading 1"):
+            display_reading1_content()
     # Display content for Vocabulary
     if practice_option == "Vocabulary":
         display_vocabulary()  # Call the function to display vocabulary content
