@@ -14,7 +14,7 @@ load_dotenv()
 open_api_key = os.getenv('OPEN_API_KEY')
 
 # Initialize LLM
-llm = ChatOpenAI(api_key=open_api_key,model="gpt-3.5",temperature=0.0, max_tokens=3000)
+llm = ChatOpenAI(api_key=open_api_key,model="gpt-4",temperature=0.0, max_tokens=3000)
 
 # FastAPI instance
 api_app = FastAPI()
