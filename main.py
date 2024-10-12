@@ -5,9 +5,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
 from writing2 import generate_random_task as generate_writing2_task, check_answer_correctness as check_answer_correctness2
-from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
+# from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
 # from vocabulary_grammar import generate_vocabulary_task as generate_vocabulary_task,generate_grammar_task as generate_grammar_task
-from grammar import generate_grammar_task_from_grammer as generate_grammar_task_from_grammer
+# from grammar import generate_grammar_task_from_grammer as generate_grammar_task_from_grammer
 import random
 import uvicorn
 import asyncio
@@ -116,33 +116,33 @@ def evaluate_answer_writing2(request: WritingTaskRequest):
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=str(e))
     
-@app.get("/grammar/generate_task_with_json")
-def generate_grammar_task_with_json():
-    try:
-        # Call your existing grammar task generation function
-        task_result = generate_grammar_task_from_grammer()
+# @app.get("/grammar/generate_task_with_json")
+# def generate_grammar_task_with_json():
+#     try:
+#         # Call your existing grammar task generation function
+#         task_result = generate_grammar_task_from_grammer()
 
-        # Log the raw task_result for debugging purposes
-        logging.info("Raw task result: %s", task_result)
+#         # Log the raw task_result for debugging purposes
+#         logging.info("Raw task result: %s", task_result)
 
-        # Return the raw task_result as it is
-        return task_result
+#         # Return the raw task_result as it is
+#         return task_result
 
-    except ValueError as ve:
-        logging.error(f"ValueError: {str(ve)}")
-        raise HTTPException(status_code=500, detail=str(ve))
-    except Exception as e:
-        logging.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+#     except ValueError as ve:
+#         logging.error(f"ValueError: {str(ve)}")
+#         raise HTTPException(status_code=500, detail=str(ve))
+#     except Exception as e:
+#         logging.error(f"Unexpected error: {str(e)}")
+#         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-@app.get("/speaking2/generate_question/")
-def generate_speaking2_task():
-    try:
-        create_vector_embedding_for_speaking_part2()
-        question = generate_speaking2_question()
-        return {"question": question}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/speaking2/generate_question/")
+# def generate_speaking2_task():
+#     try:
+#         create_vector_embedding_for_speaking_part2()
+#         question = generate_speaking2_question()
+#         return {"question": question}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
