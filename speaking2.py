@@ -1,14 +1,24 @@
 import os
 import random
 import streamlit as st
-from langchain.chat_models import ChatOpenAI  # Updated import
-from langchain.embeddings.openai import OpenAIEmbeddings  # Updated import
-from langchain.text_splitter import RecursiveCharacterTextSplitter  # Updated import
-from langchain.vectorstores import FAISS  # Updated import
-from langchain.document_loaders import PyPDFDirectoryLoader  # Updated import
+from langchain.chat_models import ChatOpenAI  # Correct import for OpenAI integration
+from langchain.embeddings.openai import OpenAIEmbeddings  # Correct import for embeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter  # Correct import for text splitting
+from langchain.vectorstores import FAISS  # Correct import for FAISS
+from langchain.document_loaders import PyPDFDirectoryLoader  # Correct import for loading PDFs
 from langchain.chains import RetrievalQA
-# from langchain.chains.qa import RetrievalQA
+import openai
+from langchain_groq import ChatGroq
 
+# Load environment variables for OpenAI API key
+from dotenv import load_dotenv
+
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+groq_api_key = os.getenv('GROQ_API_KEY')
+
+# Make sure to set the OpenAI API key globally
+openai.api_key = OPENAI_API_KEY
 
 # Function to load and parse the PDF for Speaking Part 2
 def create_vector_embedding_for_speaking_part2():
@@ -23,25 +33,21 @@ def create_vector_embedding_for_speaking_part2():
 # Function to extract questions from the document
 def extract_speaking2_questions(documents):
     tasks = []
-
     for doc in documents:
         content = doc.page_content
-        if not content:  # If there's no content, skip to the next document
+        if not content:
             continue
 
         # Split the content into lines
         lines = content.split("\n")
-
         for line in lines:
             line = line.strip()
             # Check if the line starts with a number (e.g., "1. Describe an internet business...")
             if line and line[0].isdigit() and "." in line:
-                # Extract the question
                 parts = line.split(".", 1)  # Split on the first period
                 if len(parts) == 2:
                     question = parts[1].strip()  # Get the question text
                     tasks.append({"question": question})  # Append it to the tasks list
-
     return tasks
 
 # Function to generate similar questions using RAG
@@ -54,14 +60,15 @@ def generate_similar_questions_using_rag():
 
         # Initialize RAG
         retriever = st.session_state.vectors.as_retriever()
-        language_model = ChatOpenAI(api_key=os.getenv('OPEN_API_KEY'), model="gpt-4",temperature=0.0, max_tokens=3000)  
+        # language_model = ChatOpenAI(model="gpt-4", temperature=0.0, max_tokens=3000)
+        language_model = ChatGroq(model="llama3-8b-8192", groq_api_key=groq_api_key)
 
         # Create a prompt for generating similar questions
         prompt = f"Based on the following question, generate similar questions:\n{question}"
 
         # Create a chain for RAG
         rag_chain = RetrievalQA.from_chain_type(
-            llm=language_model, 
+            llm=language_model,
             chain_type="stuff",
             retriever=retriever
         )
@@ -73,21 +80,47 @@ def generate_similar_questions_using_rag():
     else:
         return None  # No questions found or tasks are not yet ready.
 
-# Initialize embeddings and vector database on app start for Speaking Part 2
-if "speaking2_tasks" not in st.session_state:
-    create_vector_embedding_for_speaking_part2()
+# Function to transcribe uploaded audio using OpenAI Whisper
+def transcribe_audio(file):
+    if file:
+        with open(file.name, "rb") as audio_file:
+            output = openai.Audio.translate(
+                model="whisper-1",   # Specify the model
+                file=audio_file      # Provide the audio file
+            )
+        return output['text']  # The transcription result
+    return None
 
-# Streamlit UI for Speaking Part 2
-st.title("IELTS Speaking Part 2 Question Generator with RAG")
+# Function to display Speaking Part 2 content
+def display_speaking2_content():
+    st.title("IELTS Speaking Part 2 Question Generator with RAG")
 
-# Button to generate original question
-if st.button("Generate Random Speaking Part 2 Question"):
-    original_question = generate_similar_questions_using_rag()
-    if original_question:
-        st.session_state.original_question = original_question
-    else:
-        st.write("No questions found or tasks are not yet ready.")
+    # Initialize embeddings and vector database on app start for Speaking Part 2
+    if "speaking2_tasks" not in st.session_state:
+        create_vector_embedding_for_speaking_part2()
 
-# Display original question only
-if 'original_question' in st.session_state:
-    st.write(f"*Question:* {st.session_state.original_question}")
+    # Button to generate original question
+    if st.button("Generate Random Speaking Part 2 Question"):
+        original_question = generate_similar_questions_using_rag()
+        if original_question:
+            st.session_state.original_question = original_question
+        else:
+            st.write("No questions found or tasks are not yet ready.")
+
+    # Display original question only
+    if 'original_question' in st.session_state:
+        st.write(f"*Question:* {st.session_state.original_question}")
+
+        # Audio file uploader for user to attach an audio response
+        audio_file = st.file_uploader("Upload your audio response (MP3 format)", type=["mp3"])
+
+        # Transcribe audio when a file is uploaded
+        if audio_file is not None:
+            transcription = transcribe_audio(audio_file)
+            if transcription:
+                st.write(f"**Transcription:** {transcription}")
+            else:
+                st.write("Failed to transcribe the audio. Please try again.")
+
+# Call the main function to display content
+display_speaking2_content()
