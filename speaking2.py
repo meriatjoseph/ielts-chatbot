@@ -9,10 +9,10 @@ from langchain.document_loaders import PyPDFDirectoryLoader  # Correct import fo
 from langchain.chains import RetrievalQA
 import openai
 from langchain_groq import ChatGroq
-
-# Load environment variables for OpenAI API key
+import tempfile  # For handling temporary files
 from dotenv import load_dotenv
 
+# Load environment variables for OpenAI API key
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 groq_api_key = os.getenv('GROQ_API_KEY')
@@ -80,15 +80,26 @@ def generate_similar_questions_using_rag():
     else:
         return None  # No questions found or tasks are not yet ready.
 
-# Function to transcribe uploaded audio using OpenAI Whisper
+# Function to transcribe uploaded audio using OpenAI Whisper (working version)
 def transcribe_audio(file):
     if file:
-        with open(file.name, "rb") as audio_file:
-            output = openai.Audio.translate(
-                model="whisper-1",   # Specify the model
-                file=audio_file      # Provide the audio file
-            )
-        return output['text']  # The transcription result
+        # Save the uploaded file to a temporary file on disk
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio_file:
+            temp_audio_file.write(file.read())
+            temp_audio_path = temp_audio_file.name
+
+        try:
+            # Open the temporary audio file and send it to OpenAI's transcription API
+            with open(temp_audio_path, "rb") as audio_file:
+                transcription = openai.Audio.transcribe(model="whisper-1", file=audio_file)
+
+            # Clean up the temporary file
+            os.remove(temp_audio_path)
+
+            return transcription['text']  # Return the transcription result
+        except Exception as e:
+            st.write(f"Error in transcription: {e}")  # Debugging error message
+            return None
     return None
 
 # Function to display Speaking Part 2 content

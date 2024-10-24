@@ -4,7 +4,7 @@ import requests
 import bs4
 from dotenv import load_dotenv
 import streamlit as st
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain.schema import HumanMessage, SystemMessage
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -12,9 +12,12 @@ from pydantic import BaseModel
 # Load environment variables
 load_dotenv()
 open_api_key = os.getenv('OPEN_API_KEY')
+groq_api_key = os.getenv('GROQ_API_KEY')
 
 # Initialize LLM
-llm = ChatOpenAI(model="gpt-4", api_key=open_api_key,temperature=0.0, max_tokens=3000)
+llm = ChatGroq(model="llama3-8b-8192", groq_api_key=groq_api_key)
+# # Initialize LLM
+# llm = ChatOpenAI(model="gpt-3.5-turbo", api_key=open_api_key,temperature=0.0, max_tokens=3000)
 
 # FastAPI instance
 api_app = FastAPI()
