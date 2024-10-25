@@ -1,4 +1,5 @@
 import os
+import json
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
@@ -9,67 +10,104 @@ import streamlit as st
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Define prompt templates for different passages and question types
+# Define prompt templates for each passage
+passage1_template = '''Generate an IELTS Academic Reading passage of about 700-900 words on a unique academic topic.
+Choose a topic related to advanced scientific research, innovative technology, or an emerging field in the natural or physical sciences.
+Example topics include recent breakthroughs in renewable energy, artificial intelligence in healthcare, quantum physics, biochemistry, genetic engineering, astrobiology, or environmental science.
+Ensure this topic is unique to this passage and distinct from the other passages in this task.
+After the passage, create 5 TRUE/FALSE/NOT GIVEN questions and 4 Short Answer questions, providing the correct answer for each question.'''
 
-# Passage 1: TRUE/FALSE/NOT GIVEN + Short Answer questions
-passage1_template = '''Generate an IELTS Academic Reading passage of about 700-900 words on the topic of {topic}.
-After the passage, create 5 TRUE/FALSE/NOT GIVEN questions and 4 Short Answer questions.
-Make sure the passage and questions are suitable for the IELTS exam.'''
+passage2_template = '''Generate an IELTS Academic Reading passage of about 700-900 words on a unique academic topic in the social sciences, humanities, or the arts.
+Possible topics include significant historical transformations, influential sociological theories, cross-cultural studies, psychological theories, economic policies, linguistics, and philosophy.
+Example topics include the impact of industrialization, the development of languages, the role of art in society, the psychology of learning, ethics in technology, or the influence of ancient civilizations on modern society.
+Ensure this topic is completely distinct from any other passages generated in this task.
+After the passage, create 5 Multiple Choice questions with 4 answer options each, and 5 Summary Completion questions, providing the correct answer for each question.'''
 
-# Passage 2: Multiple Choice + Summary Completion
-passage2_template = '''Generate an IELTS Academic Reading passage of about 700-900 words on the topic of {topic}.
-After the passage, create 5 Multiple Choice questions and 5 Summary Completion questions.
-Make sure the passage and questions are suitable for the IELTS exam.'''
+passage3_template = '''Generate an IELTS Academic Reading passage of about 700-900 words on a unique academic topic in environmental science, global issues, or geographical studies.
+Example topics include biodiversity conservation, climate change adaptation, the impact of urbanization on ecosystems, global health challenges, international environmental policies, or the effects of deforestation.
+Make sure this topic is entirely distinct from other passage topics in this task.
+After the passage, create 5 Matching Headings questions and 5 Sentence Completion questions, providing the correct answer for each question.'''
 
-# Passage 3: Matching Headings + Sentence Completion
-passage3_template = '''Generate an IELTS Academic Reading passage of about 700-900 words on the topic of {topic}.
-After the passage, create 5 Matching Headings questions and 5 Sentence Completion questions.
-Make sure the passage and questions are suitable for the IELTS exam.'''
-
-# Define prompts for each passage
-prompt1 = PromptTemplate(input_variables=["topic"], template=passage1_template)
-prompt2 = PromptTemplate(input_variables=["topic"], template=passage2_template)
-prompt3 = PromptTemplate(input_variables=["topic"], template=passage3_template)
-
-# Initialize the LLM (OpenAI)
+# Initialize LLM and create chains for each passage
 llm = ChatGroq(temperature=0.7, max_tokens=2000)
-
-# Create chains for each passage
+prompt1 = PromptTemplate(input_variables=[], template=passage1_template)
+prompt2 = PromptTemplate(input_variables=[], template=passage2_template)
+prompt3 = PromptTemplate(input_variables=[], template=passage3_template)
 chain1 = LLMChain(llm=llm, prompt=prompt1)
 chain2 = LLMChain(llm=llm, prompt=prompt2)
 chain3 = LLMChain(llm=llm, prompt=prompt3)
 
-# Streamlit interface
-st.title("IELTS Academic Reading Task Generator")
+def generate_reading_test_json():
+    """
+    Generates the JSON for an IELTS Academic Reading Test with three passages.
+    Each passage is unique in topic and has a different question type.
+    """
+    try:
+        # Generate responses for each passage
+        response1 = chain1.run({})
+        response2 = chain2.run({})
+        response3 = chain3.run({})
 
-# User input for topics
-passage1_topic = st.text_input("Enter the topic for the first passage (TRUE/FALSE/NOT GIVEN + Short Answer):")
-passage2_topic = st.text_input("Enter the topic for the second passage (Multiple Choice + Summary Completion):")
-passage3_topic = st.text_input("Enter the topic for the third passage (Matching Headings + Sentence Completion):")
+        # Form the JSON output
+        ielts_test_json = {
+            "test": {
+                "passages": [
+                    {"passage": "Passage 1", "content": response1},
+                    {"passage": "Passage 2", "content": response2},
+                    {"passage": "Passage 3", "content": response3}
+                ]
+            }
+        }
+        return ielts_test_json
+
+    except Exception as e:
+        print(f"Error generating reading test JSON: {e}")
+        return None
+
+# Streamlit interface for generating and displaying the reading test
+st.title("IELTS Academic Reading Task Generator")
 
 if st.button("Generate IELTS Reading Test"):
     with st.spinner("Generating IELTS Reading Test... This may take a few minutes."):
-        
-        # Generate first passage with questions
-        response1 = chain1.run({"topic": passage1_topic})
-        
-        # Generate second passage with questions
-        response2 = chain2.run({"topic": passage2_topic})
-        
-        # Generate third passage with questions
-        response3 = chain3.run({"topic": passage3_topic})
 
-        # Combine all responses into one
-        full_test = f"IELTS Academic Reading Test\n\nREADING PASSAGE 1:\n{response1}\n\nREADING PASSAGE 2:\n{response2}\n\nREADING PASSAGE 3:\n{response3}"
+        # Generate JSON for the reading test
+        ielts_test_json = generate_reading_test_json()
 
-        # Display the generated IELTS Reading Test
-        st.subheader("Generated IELTS Academic Reading Test")
-        st.markdown(full_test)
-        
-        # Option to download the test as a text file
-        st.download_button(
-            label="Download IELTS Reading Test",
-            data=full_test,
-            file_name="IELTS_Reading_Test.txt",
-            mime="text/plain"
-        )
+        # Check if JSON generation was successful
+        if ielts_test_json:
+            # Display generated topics to check uniqueness (text version)
+            passages = ielts_test_json["test"]["passages"]
+            st.subheader("Generated Topics for Each Passage (Text)")
+            st.markdown(f"**Passage 1 Topic:** {passages[0]['content'].splitlines()[0]}")
+            st.markdown(f"**Passage 2 Topic:** {passages[1]['content'].splitlines()[0]}")
+            st.markdown(f"**Passage 3 Topic:** {passages[2]['content'].splitlines()[0]}")
+
+            # Display the full text output
+            st.subheader("Generated IELTS Academic Reading Test (Text Format)")
+            full_test = (f"IELTS Academic Reading Test\n\n"
+                         f"READING PASSAGE 1:\n{passages[0]['content']}\n\n"
+                         f"READING PASSAGE 2:\n{passages[1]['content']}\n\n"
+                         f"READING PASSAGE 3:\n{passages[2]['content']}")
+            st.markdown(full_test)
+
+            # Option to download text output
+            st.download_button(
+                label="Download IELTS Reading Test (Text)",
+                data=full_test,
+                file_name="IELTS_Reading_Test.txt",
+                mime="text/plain"
+            )
+
+            # Display JSON structure
+            st.subheader("Generated IELTS Academic Reading Test (JSON Format)")
+            st.json(ielts_test_json)
+
+            # Option to download JSON output
+            st.download_button(
+                label="Download IELTS Reading Test (JSON)",
+                data=json.dumps(ielts_test_json, indent=2),
+                file_name="IELTS_Reading_Test.json",
+                mime="application/json"
+            )
+        else:
+            st.error("Error generating the IELTS Reading Test JSON.")
