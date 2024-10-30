@@ -1,91 +1,181 @@
-# import streamlit as st
-# import time
-# from google.api_core.exceptions import ResourceExhausted  # Import the exception
+import json
+from fastapi import HTTPException
+import streamlit as st
+from langchain_google_genai import ChatGoogleGenerativeAI
+from dotenv import load_dotenv
 
-# def retry_api_call(api_function, retries=3, delay=60):
-#     """Utility function to retry API calls in case of ResourceExhausted error."""
-#     for attempt in range(retries):
-#         try:
-#             return api_function()
-#         except ResourceExhausted as e:
-#             st.warning(f"Quota exceeded, retrying in {delay} seconds... (Attempt {attempt + 1}/{retries})")
-#             time.sleep(delay)
-#     st.error("API quota exceeded. Please try again later.")
-#     return "Quota exceeded."
+# Load environment variables from a .env file
+load_dotenv()
 
-# # Lazy import of GoogleGenerativeAIEmbeddings when needed
-# def generate_vocabulary_task():
-#     """Generate a vocabulary practice task for IELTS General along with the correct answers."""
-#     from langchain_google_genai import ChatGoogleGenerativeAI  # Lazy import to avoid circular import issues
-#     client = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
-    
-#     return retry_api_call(
-#         lambda: client.invoke(
-#             "Generate a vocabulary task focused on IELTS General, including words frequently used in IELTS and relevant writing exercises. Also, provide the correct answers for the task. Please return the result in JSON format."
-#         ).content
-#     )
+st.markdown("""
+    <style>
+    .title {
+        color: blue;
+        font-size: 2.5em;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# def generate_feedback(task_text):
-#     """Provide feedback for a vocabulary task response."""
-#     from langchain_google_genai import ChatGoogleGenerativeAI  # Lazy import to avoid circular import issues
-#     client = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
-    
-#     return retry_api_call(
-#         lambda: client.invoke(
-#             f"Provide detailed feedback on the following IELTS General vocabulary practice task:\n{task_text}. Please return the result in JSON format."
-#         ).content
-#     )
+# Initialize Streamlit app
+st.markdown('<p class="title">English Grammar and Vocabulary Task Assistant</p>', unsafe_allow_html=True)
 
-# def generate_score(task_text):
-#     """Generate a score based on the vocabulary task response."""
-#     from langchain_google_genai import ChatGoogleGenerativeAI  # Lazy import to avoid circular import issues
-#     client = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
-    
-#     return retry_api_call(
-#         lambda: client.invoke(
-#             f"Evaluate the quality of the response for the following IELTS General task and provide a score from 1 to 10. Please return the result in JSON format:\n{task_text}"
-#         ).content
-#     )
+# Initialize Google GenAI client
+client = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
 
-# # Display Vocabulary function
-# def display_vocabulary():
-#     """Display the vocabulary task interface."""
-#     st.title("IELTS Vocabulary Practice Task")
+def generate_feedback(task_text):
+    """Generate feedback """
+    response = client.invoke(
+        f"Provide detailed feedback on the following English vocabulary task:\n{task_text}",
+    )
+    return response.content
 
-#     # Initialize session state for vocabulary task
-#     if 'vocabulary_task' not in st.session_state:
-#         st.session_state.vocabulary_task = generate_vocabulary_task()
+import re
 
-#     # Process the vocabulary task and extract the answers if present
-#     if "Correct Answers:" in st.session_state.vocabulary_task:
-#         vocab_task, vocab_answers = st.session_state.vocabulary_task.split("Correct Answers:")
-#     else:
-#         vocab_task = st.session_state.vocabulary_task
-#         vocab_answers = "Correct answers not provided."
+# Separate functions for each vocabulary task type
+def sentence_completion_task():
+    response = client.invoke(
+        """
+        Create a vocabulary task called "Complete the Sentence" in JSON format with verified answers.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences requiring one-word answers, and "answers" with correct words matching each question.
+        Use formats such as 'Complete the sentences with one word in each gap.'
+        """
+    )
+    return parse_json_response(response.content)
 
-#     st.subheader("Vocabulary Task")
-#     st.write(vocab_task)
+def error_correction_task():
+    response = client.invoke(
+        """
+        Generate a vocabulary task called "Find and Correct the Mistake" in JSON format with both incorrect and corrected words for each question.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences containing vocabulary errors, and "answers" with both the incorrect word (marked) and the correct replacement.
+        Ensure each answer clearly shows both the original mistake and the correction.
+        """
+    )
+    return parse_json_response(response.content)
 
-#     # Display correct answers in green color
-#     st.subheader("Correct Answers")
-#     st.markdown(f"<span style='color:green;'>{vocab_answers.strip()}</span>", unsafe_allow_html=True)
+def multiple_choice_task():
+    response = client.invoke(
+        """
+        Create a vocabulary task called "Choose the Correct Option" in JSON format with reliable answers.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences offering two to three vocabulary choices, and "answers" with the correct option for each question.
+        Ensure each correct option is well-suited to the context of the sentence.
+        """
+    )
+    return parse_json_response(response.content)
 
-#     # Input for vocabulary task response
-#     vocab_task_text = st.text_area("Enter your response to the vocabulary task here:")
+def synonyms_antonyms_task():
+    response = client.invoke(
+        """
+        Generate a vocabulary task focused on synonyms and antonyms in JSON format, with verified answers.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences where the word to be replaced is underlined.
+        Provide the correct synonym or antonym as the answer.
+        Confirm that each answer is accurate and relevant to the underlined word.
+        """
+    )
+    return parse_json_response(response.content)
 
-#     # Buttons for feedback and score
-#     if st.button("Get Vocabulary Feedback and Score"):
-#         if vocab_task_text:
-#             vocab_feedback = generate_feedback(vocab_task_text)
-#             vocab_score = generate_score(vocab_task_text)
-#             st.subheader("Vocabulary Feedback")
-#             st.write(vocab_feedback)
-#             st.subheader("Vocabulary Score")
-#             st.write(vocab_score)
-#         else:
-#             st.warning("Please enter a response to receive feedback and score.")
+def collocations_task():
+    response = client.invoke(
+        """
+        Create a vocabulary task on collocations in JSON format with accurate answers.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences requiring students to complete each sentence with a correct collocation, and "answers" with verified collocation phrases matching each question.
+        Double-check that each collocation is correct for the context.
+        """
+    )
+    return parse_json_response(response.content)
 
-#     # Button for next vocabulary task
-#     if st.button("Next Vocabulary Task"):
-#         st.session_state.vocabulary_task = generate_vocabulary_task()
-#         st.rerun()  # Refresh the page for the new vocabulary task
+def word_forms_task():
+    response = client.invoke(
+        """
+        Generate a vocabulary task called "Word Forms" in JSON format with verified answers.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences requiring students to provide the correct form of a word, and "answers" with the correct forms matching each question.
+        Confirm that each form fits the sentence context and grammar requirements.
+        """
+    )
+    return parse_json_response(response.content)
+
+def context_clues_task():
+    response = client.invoke(
+        """
+        Create a vocabulary task on understanding words from context clues in JSON format.
+        In each question, underline the target word in the sentence that needs to be inferred from context.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences containing an underlined word, and "answers" with the inferred meaning of each underlined word.
+        """
+    )
+    return parse_json_response(response.content)
+
+def idioms_phrases_task():
+    response = client.invoke(
+        """
+        Generate a vocabulary task focused on idioms and phrases in JSON format with accurate answers.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences where students need to fill in or choose the correct idiom or phrase, and "answers" with the verified idioms or phrases matching each question.
+        Ensure each idiom or phrase fits logically within the sentence context.
+        """
+    )
+    return parse_json_response(response.content)
+
+def phrasal_verbs_task():
+    response = client.invoke(
+        """
+        Create a vocabulary task on phrasal verbs in JSON format with accurate answers.
+        Include a key "task" describing the topic, "questions" with 15-20 sentences requiring students to complete each sentence with the correct phrasal verb, and "answers" with verified phrasal verbs matching each question.
+        Confirm each phrasal verb fits the context of the sentence.
+        """
+    )
+    return parse_json_response(response.content)
+
+# Helper function to parse JSON response
+def parse_json_response(content):
+    cleaned_content = re.search(r'\{.*\}', content, re.DOTALL)
+    if cleaned_content:
+        json_content = cleaned_content.group(0)
+        return json.loads(json_content)
+    raise HTTPException(status_code=500, detail="Invalid JSON format returned from task generator")
+
+# Function to generate vocabulary task based on task type
+def generate_vocabulary_task(task_type):
+    task_functions = {
+        "Sentence Completion": sentence_completion_task,
+        "Error Correction": error_correction_task,
+        "Multiple Choice": multiple_choice_task,
+        "Synonyms and Antonyms": synonyms_antonyms_task,
+        "Collocations": collocations_task,
+        "Word Forms": word_forms_task,
+        "Context Clues": context_clues_task,
+        "Idioms and Phrases": idioms_phrases_task,
+        "Phrasal Verbs": phrasal_verbs_task
+    }
+    return task_functions[task_type]()
+
+# Initialize session state for the vocabulary task
+if 'selected_task_type' not in st.session_state:
+    st.session_state.selected_task_type = "Sentence Completion"
+
+# Dropdown menu for selecting a vocabulary task type
+task_type = st.selectbox("Choose a vocabulary task type to practice:", 
+                     ["Sentence Completion", "Error Correction", "Multiple Choice", 
+                      "Synonyms and Antonyms", "Collocations", "Word Forms", "Context Clues", 
+                      "Idioms and Phrases", "Phrasal Verbs"])
+
+if st.button("Generate Vocabulary Task"):
+    st.session_state.selected_task_type = task_type
+    st.session_state.vocab_task = generate_vocabulary_task(task_type)
+    st.write(st.session_state.vocab_task)
+
+# Input for vocabulary task answers
+task_text = st.text_area("Enter your answer here:")
+
+# Create buttons for Feedback/Score on the same row
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    if st.button("Get Feedback and Score"):
+        if task_text:
+            feedback = generate_feedback(task_text)
+            # score = generate_score(task_text)
+            st.subheader("Feedback")
+            st.write(feedback)
+            st.subheader("Score")
+            # st.write(score)
+        else:
+            st.warning("Please enter your answers to receive feedback and score.") 
