@@ -9,6 +9,24 @@ from writing2 import generate_random_task as generate_writing2_task, check_answe
 from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
 from reading1 import generate_reading_test_json
 from vocabulary import sentence_completion_task, error_correction_task, multiple_choice_task, synonyms_antonyms_task, collocations_task, word_forms_task, context_clues_task, idioms_phrases_task, phrasal_verbs_task
+from grammar import (
+    past_time_task,
+    future_time_task,
+    articles_quantifiers_task,
+    conditionals_task,
+    comparatives_superlatives_task,
+    modals_task,
+    passive_causative_task,
+    compound_future_task,
+    quantity_task,
+    passive_structures_task,
+    uses_of_it_task,
+    relative_clauses_task,
+    modals_speculation_task,
+    talking_about_ability_task,
+    emphatic_forms_task,
+    wh_words_task
+)
 
 import uvicorn
 import asyncio
@@ -122,22 +140,6 @@ def generate_speaking2_task():
         raise HTTPException(status_code=500, detail=str(e))
 
 # Vocabulary Task Endpoints
-# def task_data:
-#     """Helper function to format questions and answers to ensure they are strings."""
-#     questions = [
-#         question.get("sentence", str(question)) if isinstance(question, dict) else str(question)
-#         for question in task_data.get("questions", [])
-#     ]
-#     correct_answers = [
-#         answer.get("correct", str(answer)) if isinstance(answer, dict) else str(answer)
-#         for answer in task_data.get("answers", [])
-#     ]
-#     return {
-#         "vocabulary_task": task_data.get("task", "No task description available"),
-#         "questions": questions,
-#         "correct_answers": correct_answers
-#     }
-
 @app.get("/vocabulary/sentence_completion/")
 def generate_sentence_completion_task():
     try:
@@ -210,6 +212,135 @@ def generate_phrasal_verbs_task():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Grammar Task Endpoints
+@app.get("/grammar/past_time/")
+def generate_past_time_task():
+    try:
+        task_data = past_time_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/future_time/")
+def generate_future_time_task():
+    try:
+        task_data = future_time_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/articles_quantifiers/")
+def generate_articles_quantifiers_task():
+    try:
+        task_data = articles_quantifiers_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/conditionals/")
+def generate_conditionals_task():
+    try:
+        task_data = conditionals_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/comparatives_superlatives/")
+def generate_comparatives_superlatives_task():
+    try:
+        task_data = comparatives_superlatives_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/modals/")
+def generate_modals_task():
+    try:
+        task_data = modals_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/passive_causative/")
+def generate_passive_causative_task():
+    try:
+        task_data = passive_causative_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/compound_future/")
+def generate_compound_future_task():
+    try:
+        task_data = compound_future_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/quantity/")
+def generate_quantity_task():
+    try:
+        task_data = quantity_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/passive_structures/")
+def generate_passive_structures_task():
+    try:
+        task_data = passive_structures_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/uses_of_it/")
+def generate_uses_of_it_task():
+    try:
+        task_data = uses_of_it_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/relative_clauses/")
+def generate_relative_clauses_task():
+    try:
+        task_data = relative_clauses_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/modals_speculation/")
+def generate_modals_speculation_task():
+    try:
+        task_data = modals_speculation_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/talking_about_ability/")
+def generate_talking_about_ability_task():
+    try:
+        task_data = talking_about_ability_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/emphatic_forms/")
+def generate_emphatic_forms_task():
+    try:
+        task_data = emphatic_forms_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/grammar/wh_words/")
+def generate_wh_words_task():
+    try:
+        task_data = wh_words_task()
+        return JSONResponse(content=task_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     if loop.is_running():
@@ -219,4 +350,4 @@ if __name__ == "__main__":
     else:
         uvicorn.run(api_app, host="0.0.0.0", port=8000)
 
-# Run the app with: uvicorn main:app --reload (do not remove this comment) 
+# Run the app with: uvicorn main:app --reload (do not remove this comment)

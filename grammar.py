@@ -1,176 +1,506 @@
+import json
+import re
+from fastapi import HTTPException
 import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
-import google.generativeai as genai
-import os
-import time
-from google.api_core.exceptions import ResourceExhausted  # Import the exception
-import json
 
 # Load environment variables from a .env file
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+st.markdown("""
+    <style>
+    .title {
+        color: blue;
+        font-size: 2.5em;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Initialize Streamlit app
+st.markdown('<p class="title">English Grammar and Vocabulary Task Assistant</p>', unsafe_allow_html=True)
 
 # Initialize Google GenAI client
 client = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
 
-def retry_api_call(api_function, retries=3, delay=60):
-    """Utility function to retry API calls in case of ResourceExhausted error."""
-    for attempt in range(retries):
-        try:
-            return api_function()
-        except ResourceExhausted as e:
-            st.warning(f"Quota exceeded, retrying in {delay} seconds... (Attempt {attempt + 1}/{retries})")
-            time.sleep(delay)
-    st.error("API quota exceeded. Please try again later.")
-    return "Quota exceeded."
-
-import re
-
-def generate_grammar_task_from_grammer():
-    """Generate a grammar practice task for IELTS General along with correct answers in JSON format."""
-    result = retry_api_call(
-        lambda: client.invoke(
-            "Generate a grammar task focused on IELTS General, including common grammar topics such as tenses, articles, and conditionals."
-            "Do not generate a letter-writing task. Focus on sentence-level grammar exercises with gaps to fill in."
-            "Provide the gaps (questions) and answers with explanations in a structured JSON format."
-        ).content
-    )
-
-    # Clean up the result to ensure valid JSON
-    cleaned_result = re.sub(r'```json|```', '', result).strip()  # Remove ```json and any other unwanted characters
-
-    # Try to parse the cleaned result as JSON to ensure it's in dictionary format
-    try:
-        parsed_result = json.loads(cleaned_result)  # Ensure the result is parsed as a JSON dictionary
-        st.write("parsed result", parsed_result)
-
-        if not isinstance(parsed_result, dict) or 'questions' not in parsed_result:
-            return {
-                "status": False,
-                "taskName": "Grammar for IELTS General",
-                "instructions": "Complete the following sentences by filling in the gaps with the correct grammatical form. Pay close attention to tenses, articles, and conditional structures.",
-                "questions": []
-            }
-
-        # Extract questions, answers, and explanations
-        questions_data = []
-        for idx, question in enumerate(parsed_result.get('questions', [])):
-            question_id = str(idx + 1)
-            sentence = question.get('text', "")
-            answer = question.get('answer', "")
-            explanation = question.get('explanation', "")
-
-            # Check if any field is empty, return status False if so
-            if not sentence or not answer or not explanation:
-                return {
-                    "status": False,
-                    "taskName": "Grammar for IELTS General",
-                    "instructions": "Complete the following sentences by filling in the gaps with the correct grammatical form. Pay close attention to tenses, articles, and conditional structures.",
-                    "questions": []
-                }
-
-            # Add to the structured JSON
-            questions_data.append({
-                "id": question_id,
-                "sentence": sentence,
-                "answer": answer,
-                "explanation": explanation
-            })
-
-        # Return the formatted JSON response
-        return {
-            "status": True,
-            "taskName": "Grammar for IELTS General",
-            "instructions": "Complete the following sentences by filling in the gaps with the correct grammatical form. Pay close attention to tenses, articles, and conditional structures.",
-            "questions": questions_data
-        }
-
-    except json.JSONDecodeError as e:
-        st.error(f"Error parsing JSON: {e}")
-        raise ValueError("Unable to parse the response as JSON.") from e
-
 def generate_feedback(task_text):
-    """Provide feedback for a grammar task response."""
-    return retry_api_call(
-        lambda: client.invoke(
-            f"Provide detailed feedback on the following IELTS General grammar practice task:\n{task_text}"
-        ).content
+    """Generate feedback """
+    response = client.invoke(
+        f"Provide detailed feedback on the following English grammar task:\n{task_text}",
     )
+    return response.content
 
 def generate_score(task_text):
-    """Generate a score based on the grammar task response."""
-    return retry_api_call(
-        lambda: client.invoke(
-            f"Evaluate the quality of the response for the following IELTS General task and provide a score from 1 to 10:\n{task_text}"
-        ).content
+    """Generate a score for the grammar task."""
+    response = client.invoke(
+        f"Evaluate the quality of the following English grammar task and provide a score from 1 to 10:\n{task_text}",
     )
+    return response.content
 
-def display_grammar():
-    """Display the grammar task interface."""
-    st.title("IELTS Grammar Practice Task")
+# Helper function to parse JSON response
+def parse_json_response(content):
+    cleaned_content = re.search(r'\{.*\}', content, re.DOTALL)
+    if cleaned_content:
+        json_content = cleaned_content.group(0)
+        return json.loads(json_content)
+    raise HTTPException(status_code=500, detail="Invalid JSON format returned from task generator")
 
-    # Initialize session state for grammar task
-    if 'grammar_task' not in st.session_state:
-        st.session_state.grammar_task = generate_grammar_task_from_grammer()
+# Separate functions for each topic
+def past_time_task():
+    response = client.invoke(
+        """
+        Create a comprehensive grammar task focused on past time forms in JSON format.
+        Include keys for "task" (task name), "description" (instructions), "questions" (a list of 15-20 questions), and "answers" (a list of correct answers as lists of strings).
+        Cover aspects such as past simple, past continuous, past perfect simple, past perfect continuous, and expressions with 'would,' 'used to,' and 'be/get used to.'
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Past Time Forms Task"),
+        "description": parsed_content.get("description", "Answer the following questions using the correct past time forms."),
+        "questions": [q if isinstance(q, str) else str(q) for q in parsed_content.get("questions", [])],
+        "answers": [
+            [ans] if isinstance(ans, str) else ans 
+            for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
 
-    # Display raw response to debug JSON structure issues
-    st.subheader("Raw API Response (for debugging)")
-    st.write(st.session_state.grammar_task)  # This should now display the parsed dictionary
 
-    # Try parsing the response as JSON (it should already be a dictionary now)
-    try:
-        grammar_data = st.session_state.grammar_task
+def future_time_task():
+    response = client.invoke(
+        """
+        Create a grammar task focusing on future time, present tenses in time clauses, and prepositions of time and place in JSON format.
+        Include keys for "task" (task name), "description" (instructions), "questions" (a list of 15-20 questions as strings), and "answers" (a list of correct answers as lists of strings).
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Future Time and Time Clauses Task"),
+        "description": parsed_content.get("description", "Answer the following questions using the appropriate future tense, present tense in time clauses, or prepositions of time and place."),
+        "questions": [q if isinstance(q, str) else str(q) for q in parsed_content.get("questions", [])],
+        "answers": [
+            [ans] if isinstance(ans, str) else ans
+            for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
 
-        # Check if it's really a dictionary
-        if not isinstance(grammar_data, dict):
-            st.error("The grammar task is not in dictionary format. Please check.")
-            return
 
-        # Display the grammar task text
-        st.subheader("Grammar Task Text")
-        task_text = " ".join([q['sentence'] for q in grammar_data['questions']])
-        st.write(task_text)
+def articles_quantifiers_task():
+    response = client.invoke(
+        """
+        Generate a task on articles, countable and uncountable nouns, and quantifiers in JSON format.
+        Include keys for "task" (task name), "description" (instructions), "questions" (a list of 15-20 questions as strings), and "answers" (a list of correct answers as lists of strings).
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Articles and Quantifiers Task"),
+        "description": parsed_content.get("description", "Answer the following questions focusing on the correct use of articles, quantifiers, and distinguishing between countable and uncountable nouns."),
+        "questions": [q if isinstance(q, str) else str(q) for q in parsed_content.get("questions", [])],
+        "answers": [
+            [ans] if isinstance(ans, str) else ans
+            for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
 
-        # Display the grammar questions and options
-        st.subheader("Grammar Questions")
-        for q in grammar_data['questions']:
-            st.write(f"Question {q['id']}: {q['sentence']}")
 
-        # Display correct answers and explanations
-        st.subheader("Correct Answers")
-        for q in grammar_data['questions']:
-            st.markdown(f"**Question {q['id']}:** Correct answer is **{q['answer']}**. Explanation: {q['explanation']}")
+def conditionals_task():
+    response = client.invoke(
+        """
+        Create a detailed exercise on conditionals in JSON format.
+        Include a key "task" describing the topic, "description" for instructions, "questions" as a list of 15-20 lists, where each list contains strings for the question components, and "answers" as a list of correct answers as lists of strings.
+        Cover different conditional types (zero, first, second, third, mixed, and inverted) as well as expressions like 'unless,' 'in case,' 'as/so long as,' and 'provided that.'
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Conditionals Task"),
+        "description": parsed_content.get("description", "Answer the following questions, covering different types of conditional statements."),
+        "questions": [
+            q if isinstance(q, list) else [str(q)]
+            for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            a if isinstance(a, list) else [str(a)]
+            for a in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
 
-        # Display the generated JSON data with options
-        st.subheader("Generated JSON Data with Options")
-        st.json(grammar_data)
 
-    except KeyError:
-        st.error("Error accessing the grammar task data. Please try again.")
-        return
+def comparatives_superlatives_task():
+    response = client.invoke(
+        """
+        Generate a task on comparatives and superlatives in JSON format.
+        Include a key "task" describing the topic, "description" for instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Comparatives and Superlatives Task"),
+        "description": parsed_content.get("description", "Choose the correct form of the adjective in each question."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            str(a) for a in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
 
-    # Input for grammar task response
-    grammar_task_text = st.text_area("Enter your response to the grammar task here:")
 
-    # Buttons for feedback and score
-    if st.button("Get Grammar Feedback and Score"):
-        if grammar_task_text:
-            grammar_feedback = generate_feedback(grammar_task_text)
-            grammar_score = generate_score(grammar_task_text)
-            st.subheader("Grammar Feedback")
-            st.write(grammar_feedback)
-            st.subheader("Grammar Score")
-            st.write(grammar_score)
+def modals_task():
+    response = client.invoke(
+        """
+        Create a comprehensive exercise on modals in JSON format.
+        Include a key "task" describing the topic, "description" for instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Modals Task"),
+        "description": parsed_content.get("description", "Choose the correct modal verb to complete each sentence."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            [str(answer) for answer in a] if isinstance(a, list) else [str(a)]
+            for a in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def passive_causative_task():
+    response = client.invoke(
+        """
+        Generate a task focusing on passive and causative forms in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Passive and Causative Forms"),
+        "description": parsed_content.get("description", "Complete each sentence by using the correct passive or causative form."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            [str(answer) for answer in a] if isinstance(a, list) else [str(a)]
+            for a in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def compound_future_task():
+    response = client.invoke(
+        """
+        Create an exercise on compound future tenses in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Compound Future Tenses"),
+        "description": parsed_content.get("description", "Complete each sentence using the appropriate compound future tense."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            [str(answer) for answer in a] if isinstance(a, list) else [str(a)]
+            for a in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def quantity_task():
+    response = client.invoke(
+        """
+        Generate a task on quantity expressions in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Quantity Expressions"),
+        "description": parsed_content.get("description", "Complete each sentence with the correct quantity expression."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            str(answer) for answer in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+
+def passive_structures_task():
+    response = client.invoke(
+        """
+        Create a detailed exercise on passive structures in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Passive Structures"),
+        "description": parsed_content.get("description", "Rewrite each sentence in the passive voice as instructed."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            str(answer) for answer in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def uses_of_it_task():
+    response = client.invoke(
+        """
+        Generate a task with 15-20 questions on the various uses of 'it' in English in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Uses of 'It' in English"),
+        "description": parsed_content.get("description", "Identify and correctly use different forms of 'it' in each sentence."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            [str(answer) for answer in ans] if isinstance(ans, list) else [str(ans)]
+            for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def relative_clauses_task():
+    response = client.invoke(
+        """
+        Create a detailed task on relative clauses and reduced relative clauses in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Relative Clauses and Reduced Relative Clauses"),
+        "description": parsed_content.get("description", "Use the correct relative clause or reduced form to complete each sentence."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            str(ans) for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def modals_speculation_task():
+    response = client.invoke(
+        """
+        Generate a task on modal verbs of speculation in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Modal Verbs: Speculation"),
+        "description": parsed_content.get("description", "Use the appropriate modal verb to express speculation for each sentence."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            [str(answer) for answer in ans] if isinstance(ans, list) else [str(ans)]
+            for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def talking_about_ability_task():
+    response = client.invoke(
+        """
+        Create a task on discussing ability in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Talking about Ability"),
+        "description": parsed_content.get("description", "Use the appropriate form to express ability for each sentence."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            [str(answer) for answer in ans] if isinstance(ans, list) else [str(ans)]
+            for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def emphatic_forms_task():
+    response = client.invoke(
+        """
+        Generate a task on emphatic forms in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Ensure the required structure
+    task_data = {
+        "task": parsed_content.get("task", "Emphatic Forms"),
+        "description": parsed_content.get("description", "Complete each sentence using the correct emphatic form."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            str(ans) for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+def wh_words_task():
+    response = client.invoke(
+        """
+        Create an exercise on the use of 'whatever,' 'whoever,' 'whenever,' 'whichever,' 'wherever,' and 'however' in JSON format.
+        Include a key "task" describing the topic, "description" with task instructions, "questions" as a list of 15-20 questions, and "answers" as a list of correct answers matching each question.
+        """
+    )
+    # Parse the response content
+    parsed_content = parse_json_response(response.content)
+    
+    # Structure the task data
+    task_data = {
+        "task": parsed_content.get("task", "WH Words Exercise"),
+        "description": parsed_content.get("description", "Complete each sentence using the correct WH word form."),
+        "questions": [
+            str(q) for q in parsed_content.get("questions", [])
+        ],
+        "answers": [
+            str(ans) for ans in parsed_content.get("answers", [])
+        ]
+    }
+    
+    return task_data
+
+
+# Dictionary mapping topics to functions
+topic_functions = {
+    "Past Time": past_time_task,
+    "Future Time and Present Tenses in Time Clauses": future_time_task,
+    "Articles and Quantifiers": articles_quantifiers_task,
+    "Conditionals": conditionals_task,
+    "Comparatives and Superlatives": comparatives_superlatives_task,
+    "Modals": modals_task,
+    "Passive and Causative Forms": passive_causative_task,
+    "Compound Future Tenses": compound_future_task,
+    "Quantity": quantity_task,
+    "Passive Structures": passive_structures_task,
+    "Uses of It": uses_of_it_task,
+    "Relative Clauses and Reduced Relative Clauses": relative_clauses_task,
+    "Modal Verbs: Speculation": modals_speculation_task,
+    "Talking about Ability": talking_about_ability_task,
+    "Emphatic Forms": emphatic_forms_task,
+    "Whatever, Whoever, Whenever, Whichever, Wherever, and However": wh_words_task
+}
+
+# Initialize session state for the topic
+if 'selected_topic' not in st.session_state:
+    st.session_state.selected_topic = "Past Time"
+
+# Dropdown menu for selecting a topic
+topic = st.selectbox("Choose a grammar topic to practice:", list(topic_functions.keys()))
+
+if st.button("Generate Task"):
+    st.session_state.selected_topic = topic
+    st.session_state.task_question = topic_functions[topic]()
+    st.write(st.session_state.task_question)
+
+# Input for grammar task
+task_text = st.text_area("Enter your answer here:")
+
+# Create buttons for Feedback/Score on the same row
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    if st.button("Get Feedback and Score"):
+        if task_text:
+            feedback = generate_feedback(task_text)
+            score = generate_score(task_text)
+            st.subheader("Feedback")
+            st.write(feedback)
+            st.subheader("Score")
+            st.write(score)
         else:
-            st.warning("Please enter a response to receive feedback and score.")
-
-    # Button for next grammar task
-    if st.button("Next Grammar Task"):
-        st.session_state.grammar_task = generate_grammar_task_from_grammer()
-        st.rerun()  # Refresh the page for the new grammar task
-
-# Call display_grammar to render the UI
-if __name__ == "__main__":
-    display_grammar()  
+            st.warning("Please enter your answers to receive feedback and score.")
