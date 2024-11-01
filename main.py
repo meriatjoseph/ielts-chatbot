@@ -122,27 +122,27 @@ def generate_speaking2_task():
         raise HTTPException(status_code=500, detail=str(e))
 
 # Vocabulary Task Endpoints
-def format_vocabulary_response(task_data):
-    """Helper function to format questions and answers to ensure they are strings."""
-    questions = [
-        question.get("sentence", str(question)) if isinstance(question, dict) else str(question)
-        for question in task_data.get("questions", [])
-    ]
-    correct_answers = [
-        answer.get("correct", str(answer)) if isinstance(answer, dict) else str(answer)
-        for answer in task_data.get("answers", [])
-    ]
-    return {
-        "vocabulary_task": task_data.get("task", "No task description available"),
-        "questions": questions,
-        "correct_answers": correct_answers
-    }
+# def task_data:
+#     """Helper function to format questions and answers to ensure they are strings."""
+#     questions = [
+#         question.get("sentence", str(question)) if isinstance(question, dict) else str(question)
+#         for question in task_data.get("questions", [])
+#     ]
+#     correct_answers = [
+#         answer.get("correct", str(answer)) if isinstance(answer, dict) else str(answer)
+#         for answer in task_data.get("answers", [])
+#     ]
+#     return {
+#         "vocabulary_task": task_data.get("task", "No task description available"),
+#         "questions": questions,
+#         "correct_answers": correct_answers
+#     }
 
 @app.get("/vocabulary/sentence_completion/")
 def generate_sentence_completion_task():
     try:
         task_data = sentence_completion_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -150,7 +150,7 @@ def generate_sentence_completion_task():
 def generate_error_correction_task():
     try:
         task_data = error_correction_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -158,7 +158,7 @@ def generate_error_correction_task():
 def generate_multiple_choice_task():
     try:
         task_data = multiple_choice_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -166,7 +166,7 @@ def generate_multiple_choice_task():
 def generate_synonyms_antonyms_task():
     try:
         task_data = synonyms_antonyms_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -174,7 +174,7 @@ def generate_synonyms_antonyms_task():
 def generate_collocations_task():
     try:
         task_data = collocations_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -182,7 +182,7 @@ def generate_collocations_task():
 def generate_word_forms_task():
     try:
         task_data = word_forms_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -190,7 +190,7 @@ def generate_word_forms_task():
 def generate_context_clues_task():
     try:
         task_data = context_clues_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -198,7 +198,7 @@ def generate_context_clues_task():
 def generate_idioms_phrases_task():
     try:
         task_data = idioms_phrases_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -206,7 +206,7 @@ def generate_idioms_phrases_task():
 def generate_phrasal_verbs_task():
     try:
         task_data = phrasal_verbs_task()
-        return JSONResponse(content=format_vocabulary_response(task_data))
+        return JSONResponse(content=task_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
