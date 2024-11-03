@@ -19,7 +19,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize Streamlit app
-st.markdown('<p class="title">English Grammar and Vocabulary Task Assistant</p>', unsafe_allow_html=True)
+st.markdown('<p class="title">English Grammar Task Assistant</p>', unsafe_allow_html=True)
 
 # Initialize Google GenAI client
 client = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
