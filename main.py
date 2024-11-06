@@ -60,11 +60,14 @@ def read_root():
 def get_generated_reading_json():
     """Endpoint to retrieve the JSON for the generated IELTS Reading Test."""
     ielts_test_json = generate_reading_test_json()  # Call the function directly
-    if ielts_test_json:
-        return ielts_test_json
-    else:
-        raise HTTPException(status_code=500, detail="Error generating reading test JSON")
 
+    # Check the status in the returned JSON and respond accordingly
+    if ielts_test_json["status"] == "success":
+        return JSONResponse(content=ielts_test_json, status_code=200)
+    else:
+        # Return a 422 status code for unprocessable entity if parsing failed
+        raise HTTPException(status_code=422, detail=ielts_test_json["detail"])
+    
 @app.get("/writing1/generate_task/", response_model=WritingTaskResponse)
 def generate_task_writing1():
     try:
