@@ -17,3 +17,4 @@ langchain-google-genai
 google-generativeai
 faster-whisper
 praat-parselmouth
+elevenlabs
