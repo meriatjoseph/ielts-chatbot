@@ -1,6 +1,9 @@
+from io import BytesIO
 import json
 import logging
-from fastapi import FastAPI, HTTPException
+import tempfile
+from fastapi import Form, UploadFile, File
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -27,6 +30,12 @@ from grammar import (
     emphatic_forms_task,
     wh_words_task
 )
+from speaking2 import (
+    create_vector_embedding_for_speaking_part2,
+    generate_similar_questions_using_rag,
+    check_answer_correctness,
+    transcribe_audio,
+)
 
 import uvicorn
 import asyncio
@@ -48,6 +57,20 @@ class GrammarTaskJsonResponse(BaseModel):
     gaps: dict
     answers: dict
     text: str
+    
+# Pydantic models for request bodies and responses
+class SpeakingTaskResponse(BaseModel):
+    question: str
+
+class AudioCheckRequest(BaseModel):
+    user_audio: bytes
+    generated_question: str
+
+class AudioCheckResponse(BaseModel):
+    general_feedback: str
+    match_feedback: str
+    corrected_text: str
+    status: bool
 
 # class VocabularyTaskRequest(BaseModel):
 #     task_type: str = Field(..., description="Type of vocabulary task, e.g., Sentence Completion, Error Correction")
@@ -133,14 +156,14 @@ def evaluate_answer_writing2(request: WritingTaskRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/speaking2/generate_question/")
-def generate_speaking2_task():
-    try:
-        create_vector_embedding_for_speaking_part2()
-        question = generate_speaking2_question()
-        return {"question": question}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/speaking2/generate_question/")
+# def generate_speaking2_task():
+#     try:
+#         create_vector_embedding_for_speaking_part2()
+#         question = generate_speaking2_question()
+#         return {"question": question}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 # Vocabulary Task Endpoints
 @app.get("/vocabulary/sentence_completion/")
@@ -344,6 +367,63 @@ def generate_wh_words_task():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+#speaking endpoints
+@app.get("/speaking2/generate_question/", response_model=SpeakingTaskResponse)
+def generate_speaking2_task():
+    try:
+        create_vector_embedding_for_speaking_part2()  # Ensure embeddings are loaded
+        question = generate_similar_questions_using_rag()
+        if question:
+            return {"question": question}
+        else:
+            raise HTTPException(status_code=404, detail="No questions found.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/speaking2/check_audio/", response_model=AudioCheckResponse)
+async def check_audio_response(
+    file: UploadFile = File(...),  # File parameter
+    question: str = Form(...)      # Form parameter
+):
+    try:
+        # Debugging log
+        print(f"Received Question: {question}")
+
+        # Validate file type
+        if file.content_type != "audio/mpeg":
+            raise HTTPException(status_code=400, detail="Invalid file type. Please upload an MP3 file.")
+        
+        # Read the audio file
+        audio_content = await file.read()
+        
+        # Transcribe the audio
+        transcription = transcribe_audio(BytesIO(audio_content))
+        if not transcription:
+            raise HTTPException(status_code=500, detail="Failed to transcribe the audio.")
+
+        # Debugging transcription and question
+        print(f"Transcription: {transcription}")
+        print(f"Generated Question: {question}")
+
+        # Evaluate the transcription
+        feedback, match_feedback, corrected_text, status = check_answer_correctness(transcription, question)
+
+        # Log evaluation results
+        print(f"Feedback: {feedback}")
+        print(f"Match Feedback: {match_feedback}")
+        print(f"Corrected Text: {corrected_text}")
+        print(f"Status: {status}")
+
+        return {
+            "general_feedback": feedback,
+            "match_feedback": match_feedback,
+            "corrected_text": corrected_text,
+            "status": status
+        }
+    except Exception as e:
+        print(f"Error in check_audio_response: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     if loop.is_running():
