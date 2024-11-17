@@ -424,6 +424,7 @@ async def check_audio_response(
     except Exception as e:
         print(f"Error in check_audio_response: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     if loop.is_running():
