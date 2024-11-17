@@ -12,7 +12,7 @@ pypdf2
 pypdf
 bs4
 pydantic
- openai==0.28
+openai
 langchain-google-genai 
 google-generativeai
 faster-whisper
