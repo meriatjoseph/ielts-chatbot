@@ -12,8 +12,7 @@ import openai
 import tempfile
 from dotenv import load_dotenv
 from io import BytesIO
-from elevenlabs import VoiceSettings
-from elevenlabs.client import ElevenLabs
+from gtts import gTTS
 from playsound import playsound
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
@@ -21,32 +20,17 @@ import numpy as np
 # Load environment variables for API keys
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
-# Initialize the ElevenLabs client for TTS
-client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
-
-# Function to perform TTS and return audio stream
+# Function to perform TTS using gTTS and return audio stream
 def text_to_speech_stream(text: str) -> BytesIO:
     try:
-        response = client.text_to_speech.convert(
-            voice_id="pNInz6obpgDQGcFmaJgB",
-            output_format="mp3_22050_32",
-            text=text,
-            model_id="eleven_multilingual_v2",
-            voice_settings=VoiceSettings(
-                stability=0.0,
-                similarity_boost=1.0,
-                style=0.0,
-                use_speaker_boost=True,
-            ),
-        )
-
+        # Use gTTS to convert text to speech
+        tts = gTTS(text=text, lang="en")
+        
+        # Save the audio to a BytesIO stream
         audio_stream = BytesIO()
-        for chunk in response:
-            if chunk:
-                audio_stream.write(chunk)
+        tts.write_to_fp(audio_stream)
         audio_stream.seek(0)
         return audio_stream
 
@@ -134,7 +118,6 @@ def transcribe_audio(file):
             return None
     return None
 
-
 # Initialize the language model
 llm = ChatOpenAI(api_key=OPENAI_API_KEY)
 
@@ -221,3 +204,4 @@ def display_speaking2_content():
 # Run the app
 if __name__ == "__main__":
     display_speaking2_content()
+ 

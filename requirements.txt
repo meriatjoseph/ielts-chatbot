@@ -21,3 +21,4 @@ elevenlabs
 playsound
 scikit-learn
 python-multipart
+gtts
