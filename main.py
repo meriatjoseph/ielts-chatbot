@@ -1,10 +1,11 @@
 from io import BytesIO
 import json
 import logging
+import os
 import tempfile
-from fastapi import Form, UploadFile, File
+from fastapi import Form, Request, UploadFile, File
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
@@ -36,6 +37,7 @@ from speaking2 import (
     check_answer_correctness,
     transcribe_audio,
 )
+from listening3 import generate_listening_task_section_three, save_script_as_audio
 
 import uvicorn
 import asyncio
@@ -439,6 +441,80 @@ def generate_audio_gtts(request: AudioRequest):
         return StreamingResponse(audio_stream, media_type="audio/mpeg")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+# @app.get("/listening3/generate_task/")
+# def generate_listening_task():
+#     try:
+#         task = generate_listening_task_section_three()
+#         return JSONResponse(content=task, status_code=200)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+# @app.get("/listening3/generate_audio/")
+# def generate_audio_endpoint():
+#     try:
+#         # Generate the listening task and audio
+#         task = generate_listening_task_section_three()
+#         script = task["script"]
+#         audio_path = save_script_as_audio(script)
+#         return FileResponse(audio_path, media_type="audio/mp3", filename="listening_task.mp3")
+#     except Exception as e:
+#         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@app.get("/listening3/generate_task/")
+def generate_listening_task(request: Request):
+    try:
+        # Generate the listening task
+        task = generate_listening_task_section_three()
+
+        # Generate audio from the script
+        script = task["script"]
+        audio_path = save_script_as_audio(script)
+
+        # Add audio URL to the response (dynamic endpoint)
+        task["audio_url"] = f"{request.base_url}listening3/get_audio?file={os.path.basename(audio_path)}"
+
+        return JSONResponse(content=task, status_code=200)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/listening3/get_audio/")
+def get_audio(file: str):
+    """
+    Serve the audio file for the listening task.
+    """
+    try:
+        # Define the directory where the audio files are saved
+        directory = tempfile.gettempdir()  # Temporary directory for saved audio
+        file_path = os.path.join(directory, file)
+
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Audio file not found.")
+
+        return FileResponse(file_path, media_type="audio/mp3", filename=file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/listening3/generate_task_with_audio/")
+def generate_listening_task_with_audio(request: Request):
+    try:
+        # Generate the listening task
+        task = generate_listening_task_section_three()
+
+        # Extract the script from the task
+        script = task["script"]
+
+        # Generate audio from the script
+        audio_path = save_script_as_audio(script)
+
+        # Add audio URL to the response (dynamic endpoint)
+        task["audio_url"] = f"{request.base_url}listening3/get_audio?file={os.path.basename(audio_path)}"
+
+        return JSONResponse(content=task, status_code=200)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
     
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
