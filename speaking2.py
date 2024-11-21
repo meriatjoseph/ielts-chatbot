@@ -101,7 +101,7 @@ def generate_similar_questions_using_rag():
 # Function to transcribe uploaded audio using OpenAI Whisper
 def transcribe_audio(file):
     if file:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
             temp_audio_file.write(file.read())
             temp_audio_path = temp_audio_file.name
         try:
@@ -177,7 +177,7 @@ def display_speaking2_content():
 
     if 'original_question' in st.session_state:
         st.write(f"Question: {st.session_state.original_question}")
-        audio_file = st.file_uploader("Upload your audio response (MP3 format)", type=["mp3"])
+        audio_file = st.file_uploader("Upload your audio response (WAV format)", type=["wav"])
 
         if audio_file is not None:
             transcription = transcribe_audio(audio_file)
@@ -204,4 +204,3 @@ def display_speaking2_content():
 # Run the app
 if __name__ == "__main__":
     display_speaking2_content()
- 

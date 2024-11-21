@@ -391,8 +391,8 @@ async def check_audio_response(
         print(f"Received Question: {question}")
 
         # Validate file type
-        if file.content_type != "audio/mpeg":
-            raise HTTPException(status_code=400, detail="Invalid file type. Please upload an MP3 file.")
+        if file.content_type != "audio/wav":
+            raise HTTPException(status_code=400, detail="Invalid file type. Please upload a WAV file.")
         
         # Read the audio file
         audio_content = await file.read()
@@ -424,7 +424,7 @@ async def check_audio_response(
     except Exception as e:
         print(f"Error in check_audio_response: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     if loop.is_running():
