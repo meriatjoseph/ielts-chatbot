@@ -22,3 +22,4 @@ playsound
 scikit-learn
 python-multipart
 gtts
+pyttsx3

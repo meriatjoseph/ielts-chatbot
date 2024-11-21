@@ -4,12 +4,12 @@ import logging
 import tempfile
 from fastapi import Form, UploadFile, File
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
 from writing2 import generate_random_task as generate_writing2_task, check_answer_correctness as check_answer_correctness2
-from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question
+from speaking2 import create_vector_embedding_for_speaking_part2, generate_similar_questions_using_rag as generate_speaking2_question, text_to_speech_stream
 from reading1 import generate_reading_test_json
 from vocabulary import sentence_completion_task, error_correction_task, multiple_choice_task, synonyms_antonyms_task, collocations_task, word_forms_task, context_clues_task, idioms_phrases_task, phrasal_verbs_task
 from grammar import (
@@ -71,7 +71,8 @@ class AudioCheckResponse(BaseModel):
     match_feedback: str
     corrected_text: str
     status: bool
-
+class AudioRequest(BaseModel):
+    text: str
 # class VocabularyTaskRequest(BaseModel):
 #     task_type: str = Field(..., description="Type of vocabulary task, e.g., Sentence Completion, Error Correction")
 
@@ -424,7 +425,21 @@ async def check_audio_response(
     except Exception as e:
         print(f"Error in check_audio_response: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
+    
+@app.post("/speaking2/generate_audio/", response_class=StreamingResponse)
+def generate_audio_gtts(request: AudioRequest):
+    """
+    Endpoint to generate audio from the given text using gTTS and return as a streaming response.
+    """
+    try:
+        text = request.text
+        audio_stream = text_to_speech_stream(text)
+        if not audio_stream:
+            raise HTTPException(status_code=500, detail="Failed to generate audio.")
+        return StreamingResponse(audio_stream, media_type="audio/mpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     if loop.is_running():

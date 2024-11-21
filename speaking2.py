@@ -192,7 +192,7 @@ def display_speaking2_content():
                 st.write(f"*Corrected Text:* {corrected_text}")
                 
                 if corrected_text and corrected_text != "Correction not available.":
-                    audio_stream = text_to_speech_stream(corrected_text)
+                    audio_stream = text_to_speech_stream(general_feedback)
                     if audio_stream:
                         audio_file_path = save_audio(audio_stream)
                         if st.button("Play Corrected Text Audio"):
