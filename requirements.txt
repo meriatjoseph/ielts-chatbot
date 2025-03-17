@@ -24,4 +24,4 @@ python-multipart
 gtts
 pyttsx3
 requests
-sqlite3
+# sqlite3
