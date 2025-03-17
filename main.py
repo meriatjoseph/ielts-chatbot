@@ -3,9 +3,13 @@ import json
 import logging
 import os
 import tempfile
-from fastapi import Form, Request, UploadFile, File
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import uvicorn
+import asyncio
+
+from fastapi import Body, Form, Request, UploadFile, File
+from fastapi import FastAPI, File, HTTPException, UploadFile, Query
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from gtts import gTTS
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from writing1 import generate_random_task as generate_writing1_task, check_grammar_with_languagetool, check_answer_correctness as check_answer_correctness1
@@ -37,14 +41,35 @@ from speaking2 import (
     check_answer_correctness,
     transcribe_audio,
 )
-from listening3 import generate_listening_task_section_three, save_script_as_audio
+# from listening3 import generate_listening_task_section_three, save_script_as_audio
+from listening1 import generate_listening_task_section_one, save_script_as_audio
 
-import uvicorn
-import asyncio
+from conversation.chat_logic import start_chat, process_chat, fetch_chat_history
+from conversation.data_base import init_db, get_user_sessions
+from conversation.llm_api import generate_conversation_feedback
+
+
+
+# Initialize database
+init_db()
 
 # FastAPI app instance
 api_app = FastAPI()
 app = FastAPI()
+
+# Request models
+class StartChatRequest(BaseModel):
+    user_id: str
+    role: str
+    name: Optional[str] = "User"
+
+class ChatRequest(BaseModel):
+    session_id: str
+    text: str
+
+class HistoryRequest(BaseModel):
+    session_id: str
+
 
 # Pydantic models for request bodies
 class WritingTaskRequest(BaseModel):
@@ -75,8 +100,53 @@ class AudioCheckResponse(BaseModel):
     status: bool
 class AudioRequest(BaseModel):
     text: str
+    
+class AudioRequestBody(BaseModel):
+    file: str  
+
+class ScriptRequest(BaseModel):
+    script: str  
+
+# Define the request body
+class ConversationFeedbackRequest(BaseModel):
+    session_id: str
+
+# Define the response
+class ConversationFeedbackResponse(BaseModel):
+    feedback: str
 # class VocabularyTaskRequest(BaseModel):
 #     task_type: str = Field(..., description="Type of vocabulary task, e.g., Sentence Completion, Error Correction")
+@app.post("/start_chat")
+def start_chat_api(request: StartChatRequest):
+    return start_chat(request.user_id, request.role, request.name)
+
+@app.post("/chat")
+def chat_api(request: ChatRequest):
+    return process_chat(request.session_id, request.text)
+
+@app.get("/history/{session_id}")
+def get_chat_history_api(session_id: str):
+    return fetch_chat_history(session_id)
+
+@app.get("/chat-history/{user_id}")
+def fetch_user_chats(user_id: str):
+    sessions = get_user_sessions(user_id)
+    if not sessions:
+        raise HTTPException(status_code=404, detail="No chat sessions found for this user.")
+    return {"user_id": user_id, "chats": sessions}
+
+@app.post("/conversation-feedback", response_model=ConversationFeedbackResponse)
+async def feedback_endpoint(request: ConversationFeedbackRequest):
+    session_id = request.session_id
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    feedback = generate_conversation_feedback(session_id)
+    if feedback.startswith("Error:"):
+        raise HTTPException(status_code=500, detail=feedback)
+
+    return {"feedback": feedback}
+
 
 @app.get("/")
 def read_root():
@@ -438,7 +508,7 @@ def generate_audio_gtts(request: AudioRequest):
         audio_stream = text_to_speech_stream(text)
         if not audio_stream:
             raise HTTPException(status_code=500, detail="Failed to generate audio.")
-        return StreamingResponse(audio_stream, media_type="audio/mpeg")
+        return StreamingResponse(audio_stream, media_type="audio/mp3")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
@@ -461,59 +531,73 @@ def generate_audio_gtts(request: AudioRequest):
 #     except Exception as e:
 #         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.get("/listening3/generate_task/")
-def generate_listening_task(request: Request):
+# @app.get("/listening3/generate_task/")
+# def generate_listening_task(request: Request):
+#     try:
+#         # Generate the listening task
+#         task = generate_listening_task_section_three()
+
+#         # Generate audio from the script
+#         script = task["script"]
+#         audio_path = save_script_as_audio(script)
+
+#         # Add audio URL to the response (dynamic endpoint)
+#         task["audio_url"] = f"{request.base_url}listening3/get_audio?file={os.path.basename(audio_path)}"
+
+#         return JSONResponse(content=task, status_code=200)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+# @app.post("/listening3/generate_audio/", response_class=StreamingResponse)
+# def generate_audio_for_listening_task(request: AudioRequest):
+#     """
+#     Endpoint to generate audio from the given script using gTTS and return as a streaming response.
+#     """
+#     try:
+#         script = request.script
+
+#         if not script.strip():
+#             raise HTTPException(status_code=400, detail="Script text cannot be empty.")
+
+#         # Convert the script to audio using gTTS
+#         tts = gTTS(script, lang="en")
+#         audio_stream = BytesIO()
+#         tts.write_to_fp(audio_stream)
+#         audio_stream.seek(0)
+
+#         # Return the audio as a streaming response
+#         return StreamingResponse(audio_stream, media_type="audio/mpeg")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to generate audio: {e}")
+
+
+@app.get("/listening1/generate_task/")
+def generate_listening_task():
+    """
+    Endpoint to generate a task for IELTS Listening Section One.
+    """
     try:
-        # Generate the listening task
-        task = generate_listening_task_section_three()
-
-        # Generate audio from the script
-        script = task["script"]
-        audio_path = save_script_as_audio(script)
-
-        # Add audio URL to the response (dynamic endpoint)
-        task["audio_url"] = f"{request.base_url}listening3/get_audio?file={os.path.basename(audio_path)}"
-
+        task = generate_listening_task_section_one()
         return JSONResponse(content=task, status_code=200)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error generating task: {str(e)}")
 
-
-@app.get("/listening3/get_audio/")
-def get_audio(file: str):
+@app.post("/listening1/generate_audio/", response_class=StreamingResponse)
+def generate_audio_for_listening_task(request: ScriptRequest = Body(...)):
     """
-    Serve the audio file for the listening task.
+    Endpoint to generate audio from a script using gTTS and return it as a streaming response.
     """
     try:
-        # Define the directory where the audio files are saved
-        directory = tempfile.gettempdir()  # Temporary directory for saved audio
-        file_path = os.path.join(directory, file)
-
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="Audio file not found.")
-
-        return FileResponse(file_path, media_type="audio/mp3", filename=file)
+        script = request.script
+        if not script.strip():
+            raise HTTPException(status_code=400, detail="Script text cannot be empty.")
+        
+        audio_stream = save_script_as_audio(script)
+        return StreamingResponse(audio_stream, media_type="audio/mpeg")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@app.get("/listening3/generate_task_with_audio/")
-def generate_listening_task_with_audio(request: Request):
-    try:
-        # Generate the listening task
-        task = generate_listening_task_section_three()
+        raise HTTPException(status_code=500, detail=f"Error generating audio: {str(e)}")
 
-        # Extract the script from the task
-        script = task["script"]
 
-        # Generate audio from the script
-        audio_path = save_script_as_audio(script)
-
-        # Add audio URL to the response (dynamic endpoint)
-        task["audio_url"] = f"{request.base_url}listening3/get_audio?file={os.path.basename(audio_path)}"
-
-        return JSONResponse(content=task, status_code=200)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
     
 if __name__ == "__main__":
@@ -526,3 +610,4 @@ if __name__ == "__main__":
         uvicorn.run(api_app, host="0.0.0.0", port=8000)
 
 # Run the app with: uvicorn main:app --reload (do not remove this comment)
+#  uvicorn main:app --reload --port 8000 (do not remove this comment)

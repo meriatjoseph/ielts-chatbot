@@ -99,7 +99,6 @@ def check_grammar_with_languagetool(text):
     response_json = response.json()
     corrected_text, band_score = apply_corrections(text, response_json)
     return corrected_text, band_score, response_json
-
 # Function to apply corrections and calculate band score
 def apply_corrections(text, response_json):
     matches = response_json.get('matches', [])
@@ -118,22 +117,27 @@ def apply_corrections(text, response_json):
             best_replacement = replacements[0]['value']
             corrected_text = corrected_text[:offset] + best_replacement + corrected_text[offset + length:]
         issue_type = match.get('rule', {}).get('issueType')
+        
+        # Adjust deductions for each issue type
         if issue_type == 'misspelling':
-            lexical_resource_score -= 0.5
+            lexical_resource_score -= 0.3  # Minor deduction for spelling
         elif issue_type == 'grammar':
-            grammatical_range_and_accuracy_score -= 0.5
+            grammatical_range_and_accuracy_score -= 0.6  # Heavier deduction for grammar errors
         elif issue_type == 'punctuation':
-            grammatical_range_and_accuracy_score -= 0.25
+            coherence_and_cohesion_score -= 0.2  # Small deduction for punctuation
         else:
-            lexical_resource_score -= 0.25
+            lexical_resource_score -= 0.2  # Default minor deduction for other issues
 
-    task_response_score = max(task_response_score, 6)
-    coherence_and_cohesion_score = max(coherence_and_cohesion_score, 6)
-    lexical_resource_score = max(lexical_resource_score, 6)
-    grammatical_range_and_accuracy_score = max(grammatical_range_and_accuracy_score, 6)
+    # Ensure scores do not drop below 5 (IELTS lower band threshold for reasonable writing)
+    task_response_score = max(task_response_score, 5)
+    coherence_and_cohesion_score = max(coherence_and_cohesion_score, 5)
+    lexical_resource_score = max(lexical_resource_score, 5)
+    grammatical_range_and_accuracy_score = max(grammatical_range_and_accuracy_score, 5)
+
+    # Calculate final band score as the average of the four criteria
     band_score = (task_response_score + coherence_and_cohesion_score + lexical_resource_score + grammatical_range_and_accuracy_score) / 4
 
-    return corrected_text, band_score
+    return corrected_text, round(band_score, 1)  # Round to one decimal place for IELTS consistency
 
 # Streamlit UI Function to display content
 def display_writing1_content():
