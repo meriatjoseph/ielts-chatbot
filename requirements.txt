@@ -18,7 +18,7 @@ google-generativeai
 faster-whisper
 praat-parselmouth
 elevenlabs
-#playsound
+playsound
 scikit-learn
 python-multipart
 gtts
